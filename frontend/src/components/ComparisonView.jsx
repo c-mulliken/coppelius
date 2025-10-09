@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client';
 import ComparisonCard from './ComparisonCard';
 
-export default function ComparisonView({ refreshTrigger }) {
+export default function ComparisonView({ userId, refreshTrigger }) {
   const [comparisonPair, setComparisonPair] = useState(null);
   const [winner, setWinner] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ export default function ComparisonView({ refreshTrigger }) {
     setError(null);
     setWinner(null);
     try {
-      const response = await api.getNextComparison();
+      const response = await api.getNextComparison(userId);
       if (response.data.message) {
         setComparisonPair(null);
         setError(response.data.message);
@@ -38,7 +38,7 @@ export default function ComparisonView({ refreshTrigger }) {
   useEffect(() => {
     const loadComparisons = async () => {
       try {
-        const comparisonsResponse = await api.getUserComparisons();
+        const comparisonsResponse = await api.getUserComparisons(userId);
         setTotalComparisons(comparisonsResponse.data.length);
       } catch (error) {
         console.error('Error fetching comparison count:', error);
@@ -47,7 +47,7 @@ export default function ComparisonView({ refreshTrigger }) {
 
     loadComparisons();
     fetchNextPair();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, userId]);
 
   const handleChoice = async (selectedOffering) => {
     if (!comparisonPair || winner) return;
@@ -60,7 +60,7 @@ export default function ComparisonView({ refreshTrigger }) {
     await new Promise((resolve) => setTimeout(resolve, 600));
 
     try {
-      await api.submitComparison(offering_a.id, offering_b.id, winnerOfferingId);
+      await api.submitComparison(userId, offering_a.id, offering_b.id, winnerOfferingId);
       setTotalComparisons((prev) => prev + 1);
       fetchNextPair();
     } catch (error) {

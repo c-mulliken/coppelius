@@ -151,18 +151,32 @@ router.post('/:id/courses', (req, res) => {
 router.delete('/:id/courses/:offering_id', (req, res) => {
   const { id, offering_id } = req.params;
 
-  const sql = `DELETE FROM user_courses WHERE user_id = ? AND offering_id = ?`;
+  // First, delete all comparisons involving this offering for this user
+  const deleteComparisons = `
+    DELETE FROM comparisons
+    WHERE user_id = ?
+    AND (offering_a_id = ? OR offering_b_id = ?)
+  `;
 
-  db.run(sql, [id, offering_id], function(err) {
+  db.run(deleteComparisons, [id, offering_id, offering_id], function(err) {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
 
-    if (this.changes === 0) {
-      return res.status(404).json({ error: 'Course offering not found in user list' });
-    }
+    // Then delete the user_courses entry
+    const deleteUserCourse = `DELETE FROM user_courses WHERE user_id = ? AND offering_id = ?`;
 
-    res.json({ success: true });
+    db.run(deleteUserCourse, [id, offering_id], function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Course offering not found in user list' });
+      }
+
+      res.json({ success: true });
+    });
   });
 });
 

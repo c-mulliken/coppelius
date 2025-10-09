@@ -1,1 +1,39 @@
 .claude/
+
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# Database (don't commit local database)
+*.db
+*.db-shm
+*.db-wal
+
+# Build outputs
+dist/
+build/
+*/dist/
+*/build/
+frontend/dist/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client';
 
-export default function SearchBar({ onAddOffering }) {
+export default function SearchBar({ userId, onAddOffering }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -70,7 +70,7 @@ export default function SearchBar({ onAddOffering }) {
 
   const handleOfferingClick = async (offering) => {
     try {
-      await api.addUserCourse(offering.id);
+      await api.addUserCourse(userId, offering.id);
       onAddOffering(offering);
       setQuery('');
       setResults([]);

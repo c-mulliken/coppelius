@@ -7,20 +7,15 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Enable sending cookies with requests
 });
 
-// User ID management (for MVP, just use hardcoded user or localStorage)
-const getUserId = () => {
-  let userId = localStorage.getItem('belli_user_id');
-  if (!userId) {
-    // For MVP, just use user ID 1
-    userId = '1';
-    localStorage.setItem('belli_user_id', userId);
-  }
-  return userId;
-};
-
 export const api = {
+  // Auth
+  getCurrentUser: () => apiClient.get('/auth/me'),
+
+  logout: () => apiClient.get('/auth/logout'),
+
   // Courses
   searchCourses: (query) => apiClient.get(`/courses`, { params: { search: query } }),
 
@@ -28,30 +23,17 @@ export const api = {
 
   getCourseOfferings: (courseId) => apiClient.get(`/courses/${courseId}/offerings`),
 
-  // User courses
-  getUserCourses: () => {
-    const userId = getUserId();
-    return apiClient.get(`/users/${userId}/courses`);
-  },
+  // User courses (userId will come from authenticated session)
+  getUserCourses: (userId) => apiClient.get(`/users/${userId}/courses`),
 
-  addUserCourse: (offeringId) => {
-    const userId = getUserId();
-    return apiClient.post(`/users/${userId}/courses`, { offering_id: offeringId });
-  },
+  addUserCourse: (userId, offeringId) => apiClient.post(`/users/${userId}/courses`, { offering_id: offeringId }),
 
-  removeUserCourse: (offeringId) => {
-    const userId = getUserId();
-    return apiClient.delete(`/users/${userId}/courses/${offeringId}`);
-  },
+  removeUserCourse: (userId, offeringId) => apiClient.delete(`/users/${userId}/courses/${offeringId}`),
 
   // Comparisons
-  getNextComparison: () => {
-    const userId = getUserId();
-    return apiClient.get(`/users/${userId}/compare/next`);
-  },
+  getNextComparison: (userId) => apiClient.get(`/users/${userId}/compare/next`),
 
-  submitComparison: (offeringAId, offeringBId, winnerOfferingId) => {
-    const userId = getUserId();
+  submitComparison: (userId, offeringAId, offeringBId, winnerOfferingId) => {
     return apiClient.post(`/users/${userId}/compare`, {
       offering_a_id: offeringAId,
       offering_b_id: offeringBId,
@@ -59,16 +41,10 @@ export const api = {
     });
   },
 
-  getUserComparisons: () => {
-    const userId = getUserId();
-    return apiClient.get(`/users/${userId}/comparisons`);
-  },
+  getUserComparisons: (userId) => apiClient.get(`/users/${userId}/comparisons`),
 
   // Rankings
-  getUserRankings: () => {
-    const userId = getUserId();
-    return apiClient.get(`/users/${userId}/rankings`);
-  },
+  getUserRankings: (userId) => apiClient.get(`/users/${userId}/rankings`),
 };
 
 export default apiClient;

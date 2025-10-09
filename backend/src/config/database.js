@@ -20,6 +20,10 @@ function initializeDatabase() {
     db.run(`
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        google_id TEXT UNIQUE,
+        email TEXT UNIQUE,
+        name TEXT,
+        profile_picture TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);

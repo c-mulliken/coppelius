@@ -2,24 +2,38 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../api/client';
 
-export default function MyRankings({ onClose }) {
+export default function MyRankings({ userId, onClose }) {
   const [rankings, setRankings] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchRankings = async () => {
-      try {
-        const response = await api.getUserRankings();
-        setRankings(response.data);
-      } catch (error) {
-        console.error('Error fetching rankings:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchRankings = async () => {
+    try {
+      const response = await api.getUserRankings(userId);
+      setRankings(response.data);
+    } catch (error) {
+      console.error('Error fetching rankings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchRankings();
-  }, []);
+  }, [userId]);
+
+  const handleDelete = async (offeringId) => {
+    if (!confirm('Remove this course? All comparisons with it will be lost.')) {
+      return;
+    }
+
+    try {
+      await api.removeUserCourse(userId, offeringId);
+      setRankings((prev) => prev.filter((r) => r.offering_id !== offeringId));
+    } catch (error) {
+      console.error('Error removing course:', error);
+      alert('Failed to remove course');
+    }
+  };
 
   const formatSemester = (semester) => {
     if (!semester) return '';
@@ -86,7 +100,7 @@ export default function MyRankings({ onClose }) {
               {rankings.map((ranking, index) => (
                 <div
                   key={ranking.offering_id}
-                  className="px-6 py-4 hover:bg-gray-50 transition-colors"
+                  className="px-6 py-4 hover:bg-gray-50 transition-colors group"
                 >
                   <div className="flex items-start gap-4">
                     <div className="text-2xl flex-shrink-0 w-12 text-center">
@@ -113,6 +127,23 @@ export default function MyRankings({ onClose }) {
                         </span>
                       </div>
                     </div>
+                    <button
+                      onClick={() => handleDelete(ranking.offering_id)}
+                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500"
+                      title="Remove course"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))}
