@@ -47,6 +47,8 @@ export const api = {
 
   getCourseOfferings: (courseId) => apiClient.get(`/courses/${courseId}/offerings`),
 
+  getSuggestedCourses: (userId, limit = 4) => apiClient.get(`/courses/suggestions/for-user`, { params: { user_id: userId, limit } }),
+
   // User courses (userId will come from authenticated session)
   getUserCourses: (userId) => apiClient.get(`/users/${userId}/courses`),
 

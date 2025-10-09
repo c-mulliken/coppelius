@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const { getSuggestedCourses } = require('../services/courseSuggestionService');
 
 // GET /courses - List all courses with optional filters
 router.get('/', (req, res) => {
@@ -79,6 +80,19 @@ router.get('/:id/offerings', (req, res) => {
       return res.status(500).json({ error: err.message });
     }
     res.json(rows);
+  });
+});
+
+// GET /courses/suggestions - Get suggested courses for user
+router.get('/suggestions/for-user', (req, res) => {
+  const userId = req.query.user_id;
+  const limit = parseInt(req.query.limit) || 4;
+
+  getSuggestedCourses(userId, limit, (err, courses) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(courses);
   });
 });
 

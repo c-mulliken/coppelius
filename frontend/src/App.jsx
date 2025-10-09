@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { api } from './api/client';
 import SearchBar from './components/SearchBar';
+import SuggestedCourses from './components/SuggestedCourses';
 import ComparisonView from './components/ComparisonView';
 import MyRankings from './components/MyRankings';
 import Login from './components/Login';
@@ -94,6 +95,9 @@ function App() {
             </div>
           </div>
           <SearchBar userId={user.id} onAddOffering={handleAddOffering} />
+          <div className="mt-8">
+            <SuggestedCourses userId={user.id} onAddOffering={handleAddOffering} />
+          </div>
         </div>
       </header>
 
