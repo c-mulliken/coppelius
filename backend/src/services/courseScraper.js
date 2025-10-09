@@ -1,5 +1,6 @@
 const axios = require('axios');
 const db = require('../config/db');
+const { fetchCourseDescription } = require('./cabApiService');
 
 const CAB_API_URL = process.env.CAB_API_URL || 'https://cab.brown.edu/api/';
 
@@ -51,6 +52,9 @@ async function scrapeSemester(semester) {
           const courseId = await ensureCourse(item);
           await insertOffering(item, courseId, semester);
           insertedOfferings++;
+
+          // Small delay to avoid overwhelming CAB API when fetching descriptions
+          await new Promise(resolve => setTimeout(resolve, 100));
         } catch (err) {
           // Ignore duplicate entries
           if (!err.message.includes('UNIQUE constraint')) {
@@ -69,30 +73,47 @@ async function scrapeSemester(semester) {
 }
 
 // Ensure course exists in courses table, return course_id
-function ensureCourse(item) {
-  return new Promise((resolve, reject) => {
+async function ensureCourse(item) {
+  return new Promise(async (resolve, reject) => {
     const department = item.code.split(' ')[0];
 
     // First, try to find existing course
-    const findSql = `SELECT id FROM courses WHERE code = ?`;
+    const findSql = `SELECT id, description FROM courses WHERE code = ?`;
 
-    db.get(findSql, [item.code], (err, row) => {
+    db.get(findSql, [item.code], async (err, row) => {
       if (err) {
         return reject(err);
       }
 
       if (row) {
-        // Course already exists
+        // Course exists, check if we need to fetch description
+        if (!row.description && item.crn && item.srcdb) {
+          console.log(`Fetching description for ${item.code}...`);
+          const description = await fetchCourseDescription(item.crn, item.code, item.srcdb);
+          if (description) {
+            const updateSql = `UPDATE courses SET description = ? WHERE id = ?`;
+            db.run(updateSql, [description, row.id], (err) => {
+              if (err) console.error(`Error updating description for ${item.code}:`, err.message);
+            });
+          }
+        }
         return resolve(row.id);
+      }
+
+      // Fetch description for new course
+      let description = null;
+      if (item.crn && item.srcdb) {
+        console.log(`Fetching description for new course ${item.code}...`);
+        description = await fetchCourseDescription(item.crn, item.code, item.srcdb);
       }
 
       // Insert new course
       const insertSql = `
-        INSERT INTO courses (code, title, department)
-        VALUES (?, ?, ?)
+        INSERT INTO courses (code, title, department, description)
+        VALUES (?, ?, ?, ?)
       `;
 
-      db.run(insertSql, [item.code, item.title, department], function(err) {
+      db.run(insertSql, [item.code, item.title, department, description], function(err) {
         if (err) {
           // Handle race condition where another process inserted the same course
           if (err.message.includes('UNIQUE constraint')) {
@@ -143,6 +164,7 @@ function insertOffering(item, courseId, semester) {
 
 async function scrapeAllSemesters() {
   console.log('Starting course scraping...');
+  console.log('Note: Description fetching is rate-limited to avoid overwhelming CAB API');
   let totalInserted = 0;
 
   for (const semester of SEMESTERS) {
@@ -150,7 +172,7 @@ async function scrapeAllSemesters() {
     totalInserted += inserted;
 
     // Add delay to be respectful to the API
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
 
   console.log(`\nScraping complete! Total offerings inserted: ${totalInserted}`);
