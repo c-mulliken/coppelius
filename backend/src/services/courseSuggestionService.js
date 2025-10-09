@@ -4,18 +4,18 @@ const db = require('../config/db');
  * Get suggested courses for a user
  *
  * Strategy (abstracted for easy future enhancement):
- * - Currently: Random sampling from course database
- * - Future: Can be enhanced to use collaborative filtering, popularity ranking,
- *   department matching, etc.
+ * - Currently: Popular courses (most added by users)
+ * - Future: Can be enhanced to use collaborative filtering, department matching,
+ *   personalized recommendations based on user's existing courses, etc.
  *
  * @param {number} userId - The user ID
  * @param {number} limit - Number of suggestions to return (default: 4)
  * @param {function} callback - Callback function (err, suggestions)
  */
 function getSuggestedCourses(userId, limit = 4, callback) {
-  // For now, implement random sampling
-  // Future: Replace this with intelligent recommendation logic
-  return getRandomCourses(limit, callback);
+  // Currently using popularity-based recommendations
+  // Easy to swap: getRandomCourses, getSimilarCourses, or build custom logic
+  return getPopularCourses(limit, callback);
 }
 
 /**
@@ -44,7 +44,7 @@ function getRandomCourses(limit, callback) {
 
 /**
  * Get popular courses based on how many users have added them
- * (Placeholder for future enhancement)
+ * Returns courses with the most user additions, excluding courses with no offerings
  * @param {number} limit - Number of courses to return
  * @param {function} callback - Callback function (err, courses)
  */
@@ -62,11 +62,23 @@ function getPopularCourses(limit, callback) {
     LEFT JOIN user_courses uc ON o.id = uc.offering_id
     GROUP BY c.id, c.code, c.title, c.department
     HAVING COUNT(DISTINCT o.id) > 0
-    ORDER BY user_count DESC, c.code
+    ORDER BY
+      user_count DESC,
+      offering_count DESC,
+      c.code ASC
     LIMIT ?
   `;
 
-  db.all(sql, [limit], callback);
+  db.all(sql, [limit], (err, courses) => {
+    if (err) return callback(err);
+
+    // If we don't have enough popular courses (new database), fall back to random
+    if (!courses || courses.length < limit) {
+      return getRandomCourses(limit, callback);
+    }
+
+    callback(null, courses);
+  });
 }
 
 /**
