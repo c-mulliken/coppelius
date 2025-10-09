@@ -69,6 +69,11 @@ export default function ComparisonView({ userId, refreshTrigger }) {
     }
   };
 
+  const handleSkip = () => {
+    if (!comparisonPair || winner) return;
+    fetchNextPair();
+  };
+
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (!comparisonPair || winner) return;
@@ -77,6 +82,8 @@ export default function ComparisonView({ userId, refreshTrigger }) {
         handleChoice(comparisonPair.offering_a);
       } else if (e.key === 'ArrowRight') {
         handleChoice(comparisonPair.offering_b);
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        handleSkip();
       }
     };
 
@@ -147,7 +154,7 @@ export default function ComparisonView({ userId, refreshTrigger }) {
           Which would you rather take again?
         </h2>
         <p className="text-sm text-gray-500 font-medium">
-          use ← → or click to choose
+          use ← → to choose • ↓ or s to skip
         </p>
       </motion.div>
 
@@ -171,11 +178,25 @@ export default function ComparisonView({ userId, refreshTrigger }) {
         </AnimatePresence>
       </div>
 
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="text-center mt-12"
+      >
+        <button
+          onClick={handleSkip}
+          disabled={winner !== null}
+          className="text-sm font-medium text-gray-500 hover:text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 px-6 py-3 rounded-full transition-all shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          skip this comparison
+        </button>
+      </motion.div>
+
       {totalComparisons > 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="text-center mt-12 text-sm text-gray-400 font-medium"
+          className="text-center mt-8 text-sm text-gray-400 font-medium"
         >
           {totalComparisons} comparison{totalComparisons !== 1 ? 's' : ''} made
         </motion.div>
