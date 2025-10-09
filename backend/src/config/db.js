@@ -1,14 +1,19 @@
 // Unified database interface that works with both SQLite and PostgreSQL
 const { Pool } = require('pg');
 
-const isProduction = process.env.DATABASE_URL !== undefined;
+// Check for PostgreSQL connection string (Railway might use different variable names)
+const pgConnectionString = process.env.DATABASE_URL ||
+                           process.env.DATABASE_PRIVATE_URL ||
+                           process.env.POSTGRES_URL;
+
+const isProduction = pgConnectionString !== undefined;
 
 let db;
 
 if (isProduction) {
   // PostgreSQL for production
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: pgConnectionString,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   });
 

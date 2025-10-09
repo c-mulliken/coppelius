@@ -13,11 +13,15 @@ const PORT = process.env.PORT || 3000;
 
 // Setup session store for production (PostgreSQL) vs development (memory)
 let sessionStore;
-if (process.env.DATABASE_URL) {
+const pgConnectionString = process.env.DATABASE_URL ||
+                           process.env.DATABASE_PRIVATE_URL ||
+                           process.env.POSTGRES_URL;
+
+if (pgConnectionString) {
   const pgSession = require('connect-pg-simple')(session);
   const { Pool } = require('pg');
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: pgConnectionString,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   });
   sessionStore = new pgSession({
