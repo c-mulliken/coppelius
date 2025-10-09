@@ -13,17 +13,18 @@ router.post('/scrape-courses', (req, res) => {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 
+  // Send immediate response
+  res.json({ success: true, message: 'Scraping started - check Railway logs for progress' });
+
   // Run the scraper in the background
   exec('node src/services/courseScraper.js', (error, stdout, stderr) => {
     if (error) {
       console.error('Scraper error:', error);
-      return res.status(500).json({ error: 'Scraping failed', details: error.message });
+    } else {
+      console.log('Scraper output:', stdout);
+      console.log('Scraping completed successfully');
     }
-    console.log('Scraper output:', stdout);
-    res.json({ success: true, message: 'Scraping completed', output: stdout });
   });
-
-  res.json({ success: true, message: 'Scraping started in background' });
 });
 
 module.exports = router;

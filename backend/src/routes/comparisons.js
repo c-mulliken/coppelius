@@ -234,7 +234,7 @@ function updateEloRatings(winnerOfferingId, loserOfferingId, callback) {
       VALUES (?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(offering_id) DO UPDATE SET
         rating = excluded.rating,
-        comparison_count = comparison_count + 1,
+        comparison_count = offering_ratings.comparison_count + 1,
         updated_at = CURRENT_TIMESTAMP
     `;
 

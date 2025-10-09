@@ -155,13 +155,18 @@ async function scrapeAllSemesters() {
 
   console.log(`\nScraping complete! Total offerings inserted: ${totalInserted}`);
 
-  // Close database connection
-  db.close((err) => {
-    if (err) {
-      console.error(err.message);
-    }
-    console.log('Database connection closed');
-  });
+  // Close database connection (only if SQLite, PostgreSQL pool stays open)
+  if (db.close && typeof db.close === 'function') {
+    db.close((err) => {
+      if (err) {
+        console.error(err.message);
+      }
+      console.log('Database connection closed');
+    });
+  } else {
+    console.log('PostgreSQL pool connection remains open');
+    process.exit(0); // Exit cleanly
+  }
 }
 
 // Run if called directly
