@@ -23,6 +23,7 @@ if (process.env.DATABASE_URL) {
   sessionStore = new pgSession({
     pool,
     tableName: 'session',
+    createTableIfMissing: true, // Auto-create session table
   });
   console.log('Using PostgreSQL session store');
 } else {
