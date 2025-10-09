@@ -11,6 +11,8 @@ router.get(
   passport.authenticate('google', { failureRedirect: '/auth/failure' }),
   (req, res) => {
     // Successful authentication, redirect to frontend
+    console.log('OAuth callback - User authenticated:', req.user);
+    console.log('Session ID:', req.sessionID);
     const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
     res.redirect(frontendURL);
   }
@@ -33,6 +35,11 @@ router.get('/logout', (req, res) => {
 
 // Get current user
 router.get('/me', (req, res) => {
+  console.log('/auth/me called - Session ID:', req.sessionID);
+  console.log('Is authenticated:', req.isAuthenticated());
+  console.log('Session:', req.session);
+  console.log('User:', req.user);
+
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
