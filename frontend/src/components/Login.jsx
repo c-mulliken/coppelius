@@ -7,6 +7,9 @@ export default function Login() {
 
     if (!apiUrl) {
       const hostname = window.location.hostname;
+      console.log('Hostname:', hostname);
+      console.log('Is localhost?', hostname === 'localhost' || hostname === '127.0.0.1');
+
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
         apiUrl = 'http://localhost:3000';
       } else {
@@ -14,6 +17,7 @@ export default function Login() {
       }
     }
 
+    console.log('Final API URL:', apiUrl);
     window.location.href = `${apiUrl}/auth/google`;
   };
 

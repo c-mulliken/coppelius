@@ -14,10 +14,31 @@ function App() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // Check if token is in URL (from OAuth callback)
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+
+      if (token) {
+        // Store token and clean URL
+        localStorage.setItem('coppelius_token', token);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      // Check if we have a token
+      const storedToken = localStorage.getItem('coppelius_token');
+      if (!storedToken) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      // Verify token by fetching user
       try {
         const response = await api.getCurrentUser();
         setUser(response.data);
       } catch (error) {
+        // Token invalid, clear it
+        localStorage.removeItem('coppelius_token');
         setUser(null);
       } finally {
         setLoading(false);
@@ -31,13 +52,9 @@ function App() {
     setRefreshTrigger((prev) => prev + 1);
   };
 
-  const handleLogout = async () => {
-    try {
-      await api.logout();
-      setUser(null);
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('coppelius_token');
+    setUser(null);
   };
 
   if (loading) {
