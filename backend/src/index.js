@@ -11,6 +11,25 @@ const authRouter = require('./routes/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Setup session store for production (PostgreSQL) vs development (memory)
+let sessionStore;
+if (process.env.DATABASE_URL) {
+  const pgSession = require('connect-pg-simple')(session);
+  const { Pool } = require('pg');
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  });
+  sessionStore = new pgSession({
+    pool,
+    tableName: 'session',
+  });
+  console.log('Using PostgreSQL session store');
+} else {
+  // Use default memory store for local development
+  console.log('Using memory session store (local dev)');
+}
+
 // Middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -21,6 +40,7 @@ app.use(express.json());
 // Session configuration
 app.use(
   session({
+    store: sessionStore,
     secret: process.env.SESSION_SECRET || 'coppelius-secret-change-in-production',
     resave: false,
     saveUninitialized: false,
