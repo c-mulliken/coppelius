@@ -89,7 +89,7 @@ export default function SuggestedCourses({ userId, onAddOffering }) {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => handleTileClick(course)}
-              className={`w-full p-4 rounded-xl border transition-all text-left ${
+              className={`w-full h-[120px] p-4 rounded-xl border transition-all text-left flex flex-col ${
                 selectedCourseId === course.id
                   ? 'bg-indigo-50 border-indigo-300 shadow-md'
                   : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
@@ -98,10 +98,10 @@ export default function SuggestedCourses({ userId, onAddOffering }) {
               <div className="text-sm font-medium text-gray-900 mb-1 truncate">
                 {course.code}
               </div>
-              <div className="text-xs text-gray-500 line-clamp-2 mb-2">
+              <div className="text-xs text-gray-500 line-clamp-2 mb-2 flex-1">
                 {course.title}
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-gray-400 mt-auto">
                 {course.offering_count} offering{course.offering_count !== 1 ? 's' : ''}
               </div>
             </motion.button>
