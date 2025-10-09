@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// In production, use /api proxy. In dev, use localhost
+// In production, use /api proxy (unless VITE_API_URL is explicitly set)
 const API_BASE_URL = import.meta.env.VITE_API_URL ||
-                     (import.meta.env.PROD ? '/api' : 'http://localhost:3000');
+                     (window.location.hostname === 'localhost' ? 'http://localhost:3000' : '/api');
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
