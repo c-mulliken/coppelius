@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/database');
+const db = require('../config/db');
 
 // GET /courses - List all courses with optional filters
 router.get('/', (req, res) => {

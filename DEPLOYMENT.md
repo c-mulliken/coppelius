@@ -32,12 +32,16 @@ git push -u origin main
    - **Start Command**: `npm start`
    - Railway will auto-detect Node.js
 
+### Add PostgreSQL Database
+1. In your Railway project, click **"+ New"**
+2. Select **"Database"** → **"PostgreSQL"**
+3. Railway will automatically create a `DATABASE_URL` environment variable
+
 ### Set Environment Variables
-In Railway, go to your service → Variables tab and add:
+In Railway, go to your backend service → Variables tab and add:
 
 ```
 NODE_ENV=production
-DATABASE_PATH=/app/data/bellibrown.db
 GOOGLE_CLIENT_ID=<your-google-client-id>
 GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 GOOGLE_CALLBACK_URL=https://<your-backend>.up.railway.app/auth/google/callback
@@ -46,15 +50,10 @@ FRONTEND_URL=https://<will-add-after-vercel-deploy>
 CAB_API_URL=https://cab.brown.edu/api/
 ```
 
-**Note**: Replace placeholders with actual values. Generate a random SESSION_SECRET (e.g., random 32-character string).
-
-### Add Persistent Volume for Database
-1. In Railway service → Settings → Volumes
-2. Click "New Volume"
-3. Mount path: `/app/data`
-4. Size: 1GB (more than enough)
-
-This ensures your SQLite database persists across deployments.
+**Note**:
+- `DATABASE_URL` is automatically injected by Railway when you add PostgreSQL
+- Replace placeholders with actual values
+- Generate SESSION_SECRET: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 
 ### Get Your Backend URL
 After deployment, Railway will give you a URL like `https://your-app-name.up.railway.app`
@@ -117,7 +116,7 @@ railway run npm run scrape
 
 ## Costs
 
-- **Railway**: $5/month (includes 512MB RAM, persistent storage)
+- **Railway**: $5/month (includes backend + PostgreSQL database)
 - **Vercel**: Free for hobby projects
 - **Domain** (optional): ~$12/year
 - **Total**: $5/month or $72/year

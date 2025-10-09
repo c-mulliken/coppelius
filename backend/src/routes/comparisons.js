@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/database');
+const db = require('../config/db');
 
 // GET /users/:id/comparisons - Get all comparisons made by user
 router.get('/users/:id/comparisons', (req, res) => {

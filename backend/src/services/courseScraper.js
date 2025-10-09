@@ -1,5 +1,5 @@
 const axios = require('axios');
-const db = require('../config/database');
+const db = require('../config/db');
 
 const CAB_API_URL = process.env.CAB_API_URL || 'https://cab.brown.edu/api/';
 
