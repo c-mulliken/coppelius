@@ -3,6 +3,7 @@ const router = express.Router();
 const { exec } = require('child_process');
 const { setupFuzzySearch } = require('../services/setupFuzzySearch');
 const { setupVectorSearch } = require('../services/setupVectorSearch');
+const { checkExtensions } = require('../services/checkExtensions');
 
 // Simple admin secret for one-time scraping
 const ADMIN_SECRET = process.env.ADMIN_SECRET || 'change-me-in-production';
@@ -56,6 +57,22 @@ router.post('/setup-vector-search', async (req, res) => {
   try {
     await setupVectorSearch();
     res.json({ success: true, message: 'Vector search setup complete' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Check available PostgreSQL extensions
+router.post('/check-extensions', async (req, res) => {
+  const { secret } = req.body;
+
+  if (secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    await checkExtensions();
+    res.json({ success: true, message: 'Check server logs for extension info' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
