@@ -53,8 +53,9 @@ async function scrapeSemester(semester) {
           await insertOffering(item, courseId, semester);
           insertedOfferings++;
 
-          // Small delay to avoid overwhelming CAB API when fetching descriptions
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Delay to avoid overwhelming CAB API when fetching descriptions
+          // Rate limit: ~2 requests/second to be respectful
+          await new Promise(resolve => setTimeout(resolve, 500));
         } catch (err) {
           // Ignore duplicate entries
           if (!err.message.includes('UNIQUE constraint')) {
