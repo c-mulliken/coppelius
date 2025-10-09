@@ -127,8 +127,10 @@ if (isProduction) {
 
       // Handle INSERT...RETURNING id for PostgreSQL
       const isInsert = pgSql.trim().toUpperCase().startsWith('INSERT');
+      const hasOnConflict = pgSql.toUpperCase().includes('ON CONFLICT');
 
-      if (isInsert && !pgSql.toUpperCase().includes('RETURNING')) {
+      // Only add RETURNING id for regular INSERTs (not UPSERTs) and if not already present
+      if (isInsert && !hasOnConflict && !pgSql.toUpperCase().includes('RETURNING')) {
         // Add RETURNING id to get lastID
         pgSql = pgSql.trim();
         if (pgSql.endsWith(';')) {
