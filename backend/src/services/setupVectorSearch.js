@@ -10,8 +10,7 @@ async function setupVectorSearch() {
   console.log('Setting up vector search...\n');
 
   if (!db.pool) {
-    console.error('Error: Not connected to PostgreSQL. Vector search requires PostgreSQL with pgvector.');
-    process.exit(1);
+    throw new Error('Not connected to PostgreSQL. Vector search requires PostgreSQL with pgvector.');
   }
 
   try {
@@ -45,19 +44,15 @@ async function setupVectorSearch() {
 
   } catch (error) {
     console.error('❌ Error setting up vector search:', error.message);
-    console.error('\nTroubleshooting:');
-    console.error('- Ensure you are connected to PostgreSQL (not SQLite)');
-    console.error('- Check if Railway PostgreSQL has pgvector extension available');
-    console.error('- You may need to contact Railway support to enable pgvector');
-    process.exit(1);
+    throw error;
   }
-
-  process.exit(0);
 }
 
 // Run if called directly
 if (require.main === module) {
-  setupVectorSearch();
+  setupVectorSearch()
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
 }
 
 module.exports = { setupVectorSearch };

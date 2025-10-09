@@ -8,8 +8,7 @@ async function setupFuzzySearch() {
   console.log('Setting up fuzzy search...\n');
 
   if (!db.pool) {
-    console.error('Error: Not connected to PostgreSQL. Fuzzy search requires PostgreSQL.');
-    process.exit(1);
+    throw new Error('Not connected to PostgreSQL. Fuzzy search requires PostgreSQL.');
   }
 
   try {
@@ -35,18 +34,15 @@ async function setupFuzzySearch() {
 
   } catch (error) {
     console.error('❌ Error setting up fuzzy search:', error.message);
-    console.error('\nTroubleshooting:');
-    console.error('- Ensure you are connected to PostgreSQL (not SQLite)');
-    console.error('- Check if Railway PostgreSQL has pg_trgm extension available');
-    process.exit(1);
+    throw error;
   }
-
-  process.exit(0);
 }
 
 // Run if called directly
 if (require.main === module) {
-  setupFuzzySearch();
+  setupFuzzySearch()
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
 }
 
 module.exports = { setupFuzzySearch };
