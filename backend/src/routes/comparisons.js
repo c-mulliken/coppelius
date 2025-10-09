@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const { updateEloRatings } = require('../services/eloService');
 
 // GET /users/:id/comparisons - Get all comparisons made by user
 router.get('/users/:id/comparisons', (req, res) => {
@@ -189,61 +190,5 @@ router.post('/users/:id/compare', (req, res) => {
     });
   });
 });
-
-// Helper function to update Elo ratings
-function updateEloRatings(winnerOfferingId, loserOfferingId, callback) {
-  const K = 32; // K-factor for Elo calculation
-
-  // Get current ratings
-  const getRatingSql = `
-    SELECT offering_id, rating, comparison_count
-    FROM offering_ratings
-    WHERE offering_id IN (?, ?)
-  `;
-
-  db.all(getRatingSql, [winnerOfferingId, loserOfferingId], (err, ratings) => {
-    if (err) return callback(err);
-
-    // Initialize ratings if they don't exist
-    let winnerRating = 1500;
-    let loserRating = 1500;
-    let winnerCount = 0;
-    let loserCount = 0;
-
-    ratings.forEach(r => {
-      if (r.offering_id == winnerOfferingId) {
-        winnerRating = r.rating;
-        winnerCount = r.comparison_count;
-      } else if (r.offering_id == loserOfferingId) {
-        loserRating = r.rating;
-        loserCount = r.comparison_count;
-      }
-    });
-
-    // Calculate expected scores
-    const expectedWinner = 1 / (1 + Math.pow(10, (loserRating - winnerRating) / 400));
-    const expectedLoser = 1 / (1 + Math.pow(10, (winnerRating - loserRating) / 400));
-
-    // Calculate new ratings
-    const newWinnerRating = Math.round(winnerRating + K * (1 - expectedWinner));
-    const newLoserRating = Math.round(loserRating + K * (0 - expectedLoser));
-
-    // Update ratings in database
-    const upsertSql = `
-      INSERT INTO offering_ratings (offering_id, rating, comparison_count, updated_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(offering_id) DO UPDATE SET
-        rating = ?,
-        comparison_count = ?,
-        updated_at = CURRENT_TIMESTAMP
-    `;
-
-    db.run(upsertSql, [winnerOfferingId, newWinnerRating, winnerCount + 1, newWinnerRating, winnerCount + 1], (err) => {
-      if (err) return callback(err);
-
-      db.run(upsertSql, [loserOfferingId, newLoserRating, loserCount + 1, newLoserRating, loserCount + 1], callback);
-    });
-  });
-}
 
 module.exports = router;

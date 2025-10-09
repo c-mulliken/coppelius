@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client';
+import { formatSemester } from '../utils/formatters';
+import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
 
 export default function SearchBar({ userId, onAddOffering }) {
   const [query, setQuery] = useState('');
@@ -10,14 +12,6 @@ export default function SearchBar({ userId, onAddOffering }) {
   const [offerings, setOfferings] = useState([]);
   const [loading, setLoading] = useState(false);
   const searchRef = useRef(null);
-
-  const formatSemester = (semester) => {
-    if (!semester) return '';
-    const year = semester.substring(0, 4);
-    const term = semester.substring(4);
-    const termMap = { '10': 'Fall', '20': 'Spring', '30': 'Summer' };
-    return `${termMap[term] || term} ${year}`;
-  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -50,7 +44,7 @@ export default function SearchBar({ userId, onAddOffering }) {
       } finally {
         setLoading(false);
       }
-    }, 300);
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(timeoutId);
   }, [query]);

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../api/client';
+import { formatSemester } from '../utils/formatters';
+import { RANK_BADGES } from '../utils/constants';
 
 export default function MyRankings({ userId, onClose }) {
   const [rankings, setRankings] = useState([]);
@@ -35,19 +37,8 @@ export default function MyRankings({ userId, onClose }) {
     }
   };
 
-  const formatSemester = (semester) => {
-    if (!semester) return '';
-    const year = semester.substring(0, 4);
-    const term = semester.substring(4);
-    const termMap = { '10': 'Fall', '20': 'Spring', '30': 'Summer' };
-    return `${termMap[term] || term} ${year}`;
-  };
-
   const getRankBadge = (position) => {
-    if (position === 1) return '🥇';
-    if (position === 2) return '🥈';
-    if (position === 3) return '🥉';
-    return `#${position}`;
+    return RANK_BADGES[position] || `#${position}`;
   };
 
   return (
