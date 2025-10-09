@@ -233,15 +233,15 @@ function updateEloRatings(winnerOfferingId, loserOfferingId, callback) {
       INSERT INTO offering_ratings (offering_id, rating, comparison_count, updated_at)
       VALUES (?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(offering_id) DO UPDATE SET
-        rating = excluded.rating,
-        comparison_count = offering_ratings.comparison_count + 1,
+        rating = ?,
+        comparison_count = ?,
         updated_at = CURRENT_TIMESTAMP
     `;
 
-    db.run(upsertSql, [winnerOfferingId, newWinnerRating, winnerCount + 1], (err) => {
+    db.run(upsertSql, [winnerOfferingId, newWinnerRating, winnerCount + 1, newWinnerRating, winnerCount + 1], (err) => {
       if (err) return callback(err);
 
-      db.run(upsertSql, [loserOfferingId, newLoserRating, loserCount + 1], callback);
+      db.run(upsertSql, [loserOfferingId, newLoserRating, loserCount + 1, newLoserRating, loserCount + 1], callback);
     });
   });
 }
