@@ -7,6 +7,7 @@ const usersRouter = require('./routes/users');
 const coursesRouter = require('./routes/courses');
 const comparisonsRouter = require('./routes/comparisons');
 const authRouter = require('./routes/auth');
+const adminRouter = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -65,6 +66,7 @@ app.use(passport.session());
 
 // Routes
 app.use('/auth', authRouter);
+app.use('/admin', adminRouter);
 app.use('/users', usersRouter);
 app.use('/courses', coursesRouter);
 app.use('/', comparisonsRouter);
