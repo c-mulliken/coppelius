@@ -108,31 +108,36 @@ if (isProduction) {
   // Adapter to make PostgreSQL work like SQLite's callback API
   db = {
     get: (sql, params, callback) => {
-      pool.query(sql, params)
+      // Convert ? placeholders to $1, $2, etc for PostgreSQL
+      const pgSql = convertPlaceholders(sql);
+      pool.query(pgSql, params)
         .then(result => callback(null, result.rows[0] || null))
         .catch(err => callback(err));
     },
 
     all: (sql, params, callback) => {
-      pool.query(sql, params)
+      const pgSql = convertPlaceholders(sql);
+      pool.query(pgSql, params)
         .then(result => callback(null, result.rows))
         .catch(err => callback(err));
     },
 
     run: (sql, params, callback) => {
-      // Handle INSERT...RETURNING id for PostgreSQL
-      const isInsert = sql.trim().toUpperCase().startsWith('INSERT');
+      let pgSql = convertPlaceholders(sql);
 
-      if (isInsert && !sql.toUpperCase().includes('RETURNING')) {
+      // Handle INSERT...RETURNING id for PostgreSQL
+      const isInsert = pgSql.trim().toUpperCase().startsWith('INSERT');
+
+      if (isInsert && !pgSql.toUpperCase().includes('RETURNING')) {
         // Add RETURNING id to get lastID
-        sql = sql.trim();
-        if (sql.endsWith(';')) {
-          sql = sql.slice(0, -1);
+        pgSql = pgSql.trim();
+        if (pgSql.endsWith(';')) {
+          pgSql = pgSql.slice(0, -1);
         }
-        sql += ' RETURNING id';
+        pgSql += ' RETURNING id';
       }
 
-      pool.query(sql, params)
+      pool.query(pgSql, params)
         .then(result => {
           const ctx = {
             lastID: result.rows[0]?.id || null,
@@ -145,6 +150,12 @@ if (isProduction) {
 
     pool // Export pool for direct access if needed
   };
+
+  // Helper function to convert SQLite ? placeholders to PostgreSQL $1, $2, etc
+  function convertPlaceholders(sql) {
+    let index = 0;
+    return sql.replace(/\?/g, () => `$${++index}`);
+  }
 
   console.log('Using PostgreSQL');
 } else {
