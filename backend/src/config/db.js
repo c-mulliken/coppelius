@@ -110,6 +110,16 @@ if (isProduction) {
     get: (sql, params, callback) => {
       // Convert ? placeholders to $1, $2, etc for PostgreSQL
       const pgSql = convertPlaceholders(sql);
+
+      // Debug logging for Elo rating queries
+      if (pgSql.includes('offering_ratings')) {
+        console.log('=== GET OFFERING_RATINGS ===');
+        console.log('Original SQL:', sql);
+        console.log('Converted SQL:', pgSql);
+        console.log('Params:', params);
+        console.log('===========================');
+      }
+
       pool.query(pgSql, params)
         .then(result => callback(null, result.rows[0] || null))
         .catch(err => callback(err));
@@ -117,6 +127,16 @@ if (isProduction) {
 
     all: (sql, params, callback) => {
       const pgSql = convertPlaceholders(sql);
+
+      // Debug logging for Elo rating queries
+      if (pgSql.includes('offering_ratings')) {
+        console.log('=== ALL OFFERING_RATINGS ===');
+        console.log('Original SQL:', sql);
+        console.log('Converted SQL:', pgSql);
+        console.log('Params:', params);
+        console.log('============================');
+      }
+
       pool.query(pgSql, params)
         .then(result => callback(null, result.rows))
         .catch(err => callback(err));
@@ -137,6 +157,16 @@ if (isProduction) {
           pgSql = pgSql.slice(0, -1);
         }
         pgSql += ' RETURNING id';
+      }
+
+      // Debug logging for Elo rating queries
+      if (pgSql.includes('offering_ratings')) {
+        console.log('=== OFFERING_RATINGS QUERY ===');
+        console.log('Original SQL:', sql);
+        console.log('Converted SQL:', pgSql);
+        console.log('Params:', params);
+        console.log('Has ON CONFLICT:', hasOnConflict);
+        console.log('==============================');
       }
 
       pool.query(pgSql, params)
