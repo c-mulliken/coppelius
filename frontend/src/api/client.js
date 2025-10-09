@@ -1,8 +1,22 @@
 import axios from 'axios';
 
-// In production, use /api proxy (unless VITE_API_URL is explicitly set)
-const API_BASE_URL = import.meta.env.VITE_API_URL ||
-                     (window.location.hostname === 'localhost' ? 'http://localhost:3000' : '/api');
+// Determine API URL based on environment
+const getApiUrl = () => {
+  // If explicitly set, use that
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  // Local development
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:3000';
+  }
+
+  // Production - use Vercel proxy
+  return '/api';
+};
+
+const API_BASE_URL = getApiUrl();
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

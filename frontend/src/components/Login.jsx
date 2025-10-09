@@ -2,9 +2,18 @@ import { motion } from 'framer-motion';
 
 export default function Login() {
   const handleGoogleLogin = () => {
-    // In production, use /api proxy (unless VITE_API_URL is explicitly set)
-    const apiUrl = import.meta.env.VITE_API_URL ||
-                   (window.location.hostname === 'localhost' ? 'http://localhost:3000' : '/api');
+    // Determine API URL
+    let apiUrl = import.meta.env.VITE_API_URL;
+
+    if (!apiUrl) {
+      const hostname = window.location.hostname;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        apiUrl = 'http://localhost:3000';
+      } else {
+        apiUrl = '/api';
+      }
+    }
+
     window.location.href = `${apiUrl}/auth/google`;
   };
 
