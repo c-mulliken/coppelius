@@ -93,16 +93,52 @@ router.post('/remove-conference-sections', async (req, res) => {
   }
 
   try {
-    // Delete conference sections (section starting with 'C')
-    const result = await db.pool.query(`
+    // First, get IDs of conference sections
+    const conferenceOfferings = await db.pool.query(`
+      SELECT id FROM offerings WHERE section LIKE 'C%'
+    `);
+
+    const offeringIds = conferenceOfferings.rows.map(row => row.id);
+
+    if (offeringIds.length === 0) {
+      return res.json({ success: true, message: 'No conference sections found', deleted: 0 });
+    }
+
+    // Delete related data first (to avoid foreign key violations)
+
+    // 1. Delete from offering_ratings
+    const ratingsResult = await db.pool.query(`
+      DELETE FROM offering_ratings
+      WHERE offering_id = ANY($1)
+    `, [offeringIds]);
+
+    // 2. Delete from comparisons
+    const comparisonsResult = await db.pool.query(`
+      DELETE FROM comparisons
+      WHERE offering_a_id = ANY($1) OR offering_b_id = ANY($1) OR winner_offering_id = ANY($1)
+    `, [offeringIds, offeringIds, offeringIds]);
+
+    // 3. Delete from user_courses
+    const userCoursesResult = await db.pool.query(`
+      DELETE FROM user_courses
+      WHERE offering_id = ANY($1)
+    `, [offeringIds]);
+
+    // 4. Finally, delete the offerings themselves
+    const offeringsResult = await db.pool.query(`
       DELETE FROM offerings
       WHERE section LIKE 'C%'
     `);
 
     res.json({
       success: true,
-      message: `Removed ${result.rowCount} conference sections`,
-      deleted: result.rowCount
+      message: `Removed ${offeringsResult.rowCount} conference sections`,
+      deleted: {
+        offerings: offeringsResult.rowCount,
+        ratings: ratingsResult.rowCount,
+        comparisons: comparisonsResult.rowCount,
+        userCourses: userCoursesResult.rowCount
+      }
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
