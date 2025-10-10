@@ -7,8 +7,7 @@ async function checkExtensions() {
   console.log('Checking available PostgreSQL extensions...\n');
 
   if (!db.pool) {
-    console.error('Error: Not connected to PostgreSQL');
-    process.exit(1);
+    throw new Error('Not connected to PostgreSQL');
   }
 
   try {
@@ -37,15 +36,22 @@ async function checkExtensions() {
     const version = await db.pool.query('SELECT version()');
     console.log(version.rows[0].version);
 
+    return {
+      available: available.rows,
+      installed: installed.rows,
+      version: version.rows[0].version
+    };
+
   } catch (error) {
     console.error('Error:', error.message);
+    throw error;
   }
-
-  process.exit(0);
 }
 
 if (require.main === module) {
-  checkExtensions();
+  checkExtensions()
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
 }
 
 module.exports = { checkExtensions };
