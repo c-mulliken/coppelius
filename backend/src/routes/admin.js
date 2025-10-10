@@ -145,4 +145,55 @@ router.post('/remove-conference-sections', async (req, res) => {
   }
 });
 
+// Get database statistics
+router.post('/db-stats', async (req, res) => {
+  const { secret } = req.body;
+
+  if (secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const db = require('../config/db');
+
+  if (!db.pool) {
+    return res.status(500).json({ error: 'Not connected to PostgreSQL' });
+  }
+
+  try {
+    // Get offerings per semester
+    const semesterStats = await db.pool.query(`
+      SELECT semester, COUNT(*) as count
+      FROM offerings
+      GROUP BY semester
+      ORDER BY semester DESC
+    `);
+
+    // Get total counts
+    const totals = await db.pool.query(`
+      SELECT
+        (SELECT COUNT(*) FROM courses) as total_courses,
+        (SELECT COUNT(*) FROM offerings) as total_offerings,
+        (SELECT COUNT(*) FROM users) as total_users,
+        (SELECT COUNT(*) FROM comparisons) as total_comparisons
+    `);
+
+    // Get courses with/without descriptions
+    const descriptionStats = await db.pool.query(`
+      SELECT
+        COUNT(CASE WHEN description IS NOT NULL AND description != '' THEN 1 END) as with_description,
+        COUNT(CASE WHEN description IS NULL OR description = '' THEN 1 END) as without_description
+      FROM courses
+    `);
+
+    res.json({
+      success: true,
+      semesterStats: semesterStats.rows,
+      totals: totals.rows[0],
+      descriptionStats: descriptionStats.rows[0]
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
