@@ -43,11 +43,23 @@ async function scrapeSemester(semester) {
       const results = response.data.results;
       console.log(`Found ${results.length} course offerings for semester ${semester}`);
 
+      // Filter out conference sections (sections starting with 'C')
+      const filteredResults = results.filter(item => {
+        const section = item.no || '';
+        if (section.startsWith('C')) {
+          console.log(`Skipping conference section: ${item.code} ${section}`);
+          return false;
+        }
+        return true;
+      });
+
+      console.log(`Processing ${filteredResults.length} non-conference offerings (skipped ${results.length - filteredResults.length} conference sections)`);
+
       // Insert courses and offerings into database
       let insertedCourses = 0;
       let insertedOfferings = 0;
 
-      for (const item of results) {
+      for (const item of filteredResults) {
         try {
           const courseId = await ensureCourse(item);
           await insertOffering(item, courseId, semester);
