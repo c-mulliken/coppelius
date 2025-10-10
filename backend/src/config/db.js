@@ -12,9 +12,14 @@ let db;
 
 if (isProduction) {
   // PostgreSQL for production
+  // Parse connection string to check if SSL is supported
+  const sslConfig = pgConnectionString.includes('sslmode=require')
+    ? { rejectUnauthorized: false }
+    : false;
+
   const pool = new Pool({
     connectionString: pgConnectionString,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    ssl: sslConfig,
   });
 
   // Initialize PostgreSQL schema
