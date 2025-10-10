@@ -78,4 +78,35 @@ router.post('/check-extensions', async (req, res) => {
   }
 });
 
+// Remove conference sections (sections starting with 'C')
+router.post('/remove-conference-sections', async (req, res) => {
+  const { secret } = req.body;
+
+  if (secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const db = require('../config/db');
+
+  if (!db.pool) {
+    return res.status(500).json({ error: 'Not connected to PostgreSQL' });
+  }
+
+  try {
+    // Delete conference sections (section starting with 'C')
+    const result = await db.pool.query(`
+      DELETE FROM offerings
+      WHERE section LIKE 'C%'
+    `);
+
+    res.json({
+      success: true,
+      message: `Removed ${result.rowCount} conference sections`,
+      deleted: result.rowCount
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
