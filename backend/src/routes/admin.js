@@ -196,4 +196,36 @@ router.post('/db-stats', async (req, res) => {
   }
 });
 
+// Reset database (delete all data)
+router.post('/reset-db', async (req, res) => {
+  const { secret } = req.body;
+
+  if (secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const db = require('../config/db');
+
+  if (!db.pool) {
+    return res.status(500).json({ error: 'Not connected to PostgreSQL' });
+  }
+
+  try {
+    // Delete in order to respect foreign key constraints
+    await db.pool.query('DELETE FROM comparisons');
+    await db.pool.query('DELETE FROM user_courses');
+    await db.pool.query('DELETE FROM offering_ratings');
+    await db.pool.query('DELETE FROM offerings');
+    await db.pool.query('DELETE FROM courses');
+    await db.pool.query('DELETE FROM users');
+
+    res.json({
+      success: true,
+      message: 'Database reset complete - all data deleted'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
