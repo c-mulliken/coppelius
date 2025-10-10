@@ -107,8 +107,10 @@ router.get('/:id/rankings', (req, res) => {
       total_comparisons,
       ROUND(CASE WHEN total_comparisons > 0 THEN (wins * 100.0 / total_comparisons) ELSE 0 END, 1) as win_rate
     FROM offering_stats
-    WHERE total_comparisons > 0
-    ORDER BY rating DESC, wins DESC
+    ORDER BY
+      CASE WHEN total_comparisons > 0 THEN 0 ELSE 1 END,
+      rating DESC,
+      wins DESC
   `;
 
   db.all(sql, [id, id], (err, rows) => {

@@ -7,34 +7,48 @@ const { getSuggestedCourses } = require('../services/courseSuggestionService');
 router.get('/', async (req, res) => {
   const { search, department } = req.query;
 
-  // For PostgreSQL with fuzzy matching
-  if (db.pool && search) {
+  // PostgreSQL with fuzzy search
+  if (db.pool) {
     try {
       let sql = `
-        SELECT c.id, c.code, c.title, c.department,
-               similarity(LOWER(c.code || ' ' || c.title), LOWER($1)) as similarity_score
+        SELECT c.id, c.code, c.title, c.department
+      `;
+      const params = [];
+      let paramIndex = 1;
+
+      // Add similarity score for fuzzy matching when searching
+      if (search) {
+        sql += `, similarity(LOWER(c.code || ' ' || c.title), LOWER($${paramIndex})) as similarity_score`;
+        params.push(search);
+        paramIndex++;
+      }
+
+      sql += `
         FROM courses c
         WHERE 1=1
       `;
-      const params = [search];
-      let paramIndex = 2;
 
-      // Use fuzzy matching with trigram similarity
-      sql += ` AND (
-        LOWER(c.code) LIKE LOWER($${paramIndex}) OR
-        LOWER(c.title) LIKE LOWER($${paramIndex + 1}) OR
-        similarity(LOWER(c.code || ' ' || c.title), LOWER($1)) > 0.1
-      )`;
-      params.push(`%${search}%`, `%${search}%`);
-      paramIndex += 2;
+      if (search) {
+        sql += ` AND (
+          LOWER(c.code) LIKE LOWER($${paramIndex}) OR
+          LOWER(c.title) LIKE LOWER($${paramIndex + 1}) OR
+          similarity(LOWER(c.code || ' ' || c.title), LOWER($${paramIndex + 2})) > 0.1
+        )`;
+        params.push(`%${search}%`, `%${search}%`, search);
+        paramIndex += 3;
+      }
 
       if (department) {
         sql += ` AND c.department = $${paramIndex}`;
         params.push(department);
       }
 
-      // Order by similarity score for fuzzy matches, then by code
-      sql += ` ORDER BY similarity_score DESC, c.code LIMIT 100`;
+      // Order by similarity score if searching, otherwise by code
+      if (search) {
+        sql += ` ORDER BY similarity_score DESC, c.code LIMIT 100`;
+      } else {
+        sql += ` ORDER BY c.code LIMIT 100`;
+      }
 
       const result = await db.pool.query(sql, params);
       return res.json(result.rows);
@@ -43,7 +57,7 @@ router.get('/', async (req, res) => {
     }
   }
 
-  // Fallback for SQLite or non-search queries (case-insensitive)
+  // Fallback for SQLite (case-insensitive)
   let sql = `
     SELECT c.id, c.code, c.title, c.department
     FROM courses c
