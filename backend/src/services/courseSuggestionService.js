@@ -1,6 +1,116 @@
 const db = require('../config/db');
 
 /**
+ * Perform k-means clustering on course embeddings
+ * @param {Array} embeddings - Array of {id, embedding} objects
+ * @param {number} k - Number of clusters
+ * @returns {Array} Array of clusters, each containing course IDs and centroid
+ */
+function kMeansClustering(embeddings, k) {
+  if (embeddings.length <= k) {
+    // If we have fewer courses than clusters, each course is its own cluster
+    return embeddings.map(e => ({
+      courses: [e.id],
+      centroid: e.embedding
+    }));
+  }
+
+  const dim = embeddings[0].embedding.length;
+
+  // Initialize centroids randomly from existing embeddings
+  const centroids = [];
+  const shuffled = [...embeddings].sort(() => Math.random() - 0.5);
+  for (let i = 0; i < k; i++) {
+    centroids.push([...shuffled[i].embedding]);
+  }
+
+  let assignments = new Array(embeddings.length);
+  let changed = true;
+  let iterations = 0;
+  const maxIterations = 100;
+
+  while (changed && iterations < maxIterations) {
+    changed = false;
+    iterations++;
+
+    // Assign each embedding to nearest centroid
+    for (let i = 0; i < embeddings.length; i++) {
+      let minDist = Infinity;
+      let bestCluster = 0;
+
+      for (let j = 0; j < k; j++) {
+        const dist = cosineSimilarity(embeddings[i].embedding, centroids[j]);
+        if (dist < minDist) {
+          minDist = dist;
+          bestCluster = j;
+        }
+      }
+
+      if (assignments[i] !== bestCluster) {
+        changed = true;
+        assignments[i] = bestCluster;
+      }
+    }
+
+    // Update centroids
+    for (let j = 0; j < k; j++) {
+      const clusterPoints = embeddings.filter((_, i) => assignments[i] === j);
+      if (clusterPoints.length > 0) {
+        // Average the embeddings in this cluster
+        const newCentroid = new Array(dim).fill(0);
+        for (const point of clusterPoints) {
+          for (let d = 0; d < dim; d++) {
+            newCentroid[d] += point.embedding[d];
+          }
+        }
+        for (let d = 0; d < dim; d++) {
+          newCentroid[d] /= clusterPoints.length;
+        }
+        centroids[j] = newCentroid;
+      }
+    }
+  }
+
+  // Build clusters
+  const clusters = [];
+  for (let j = 0; j < k; j++) {
+    const clusterCourses = embeddings
+      .filter((_, i) => assignments[i] === j)
+      .map(e => e.id);
+
+    if (clusterCourses.length > 0) {
+      clusters.push({
+        courses: clusterCourses,
+        centroid: centroids[j]
+      });
+    }
+  }
+
+  return clusters;
+}
+
+/**
+ * Calculate cosine distance (1 - cosine similarity) between two vectors
+ * @param {Array} a - First vector
+ * @param {Array} b - Second vector
+ * @returns {number} Cosine distance
+ */
+function cosineSimilarity(a, b) {
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  const similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  return 1 - similarity; // Return distance, not similarity
+}
+
+/**
  * Get suggested courses for a user
  *
  * Strategy:
@@ -82,7 +192,7 @@ function getPopularCourses(limit, callback) {
 
 /**
  * Get courses similar to what the user has already added
- * Uses pgvector embeddings for semantic similarity
+ * Uses k-means clustering + pgvector embeddings for semantic similarity
  * @param {number} userId - The user ID
  * @param {number} limit - Number of courses to return
  * @param {function} callback - Callback function (err, courses)
@@ -121,54 +231,69 @@ async function getSimilarCourses(userId, limit, callback) {
       return getRandomCourses(limit, callback);
     }
 
-    // Average the embeddings of user's courses
-    // pgvector supports vector operations
-    const embeddingsList = userCourses.map(c => `'${JSON.stringify(c.embedding)}'::vector`).join(' + ');
-    const avgEmbedding = `(${embeddingsList}) / ${userCourses.length}`;
+    // Determine number of clusters (roughly 5 courses per cluster)
+    const k = Math.max(1, Math.ceil(userCourses.length / 5));
 
-    // Fetch top K similar courses (K = limit * 5 for diversity)
-    const topK = limit * 5;
+    // Perform k-means clustering on user's courses
+    const clusters = kMeansClustering(userCourses, k);
 
-    // Find similar courses using cosine similarity
-    const sql = `
-      SELECT
-        c.id,
-        c.code,
-        c.title,
-        c.department,
-        COUNT(DISTINCT o.id) as offering_count,
-        1 - (c.embedding <=> (${avgEmbedding})) as similarity
-      FROM courses c
-      JOIN offerings o ON c.id = o.course_id
-      WHERE c.embedding IS NOT NULL
-        AND c.id != ALL($1::int[])
-      GROUP BY c.id, c.code, c.title, c.department, c.embedding
-      HAVING COUNT(DISTINCT o.id) > 0
-      ORDER BY c.embedding <=> (${avgEmbedding})
-      LIMIT $2
-    `;
+    // Number of recommendations per cluster
+    const perCluster = Math.max(2, Math.ceil(limit / clusters.length));
+    const topKPerCluster = perCluster * 3; // Fetch 3x for diversity
 
-    const result = await db.pool.query(sql, [allUserCourseIds, topK]);
+    // Query similar courses for each cluster
+    const allRecommendations = [];
 
-    // Randomly sample 'limit' courses from the top K results for diversity
-    const topKCourses = result.rows;
-    const sampledCourses = [];
-    const indices = [...Array(topKCourses.length).keys()];
+    for (const cluster of clusters) {
+      const centroid = cluster.centroid;
+      const centroidVector = `'${JSON.stringify(centroid)}'::vector`;
 
-    // Fisher-Yates shuffle and take first 'limit' items
-    for (let i = indices.length - 1; i > 0 && sampledCourses.length < limit; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [indices[i], indices[j]] = [indices[j], indices[i]];
-      sampledCourses.push(topKCourses[indices[i]]);
+      const sql = `
+        SELECT
+          c.id,
+          c.code,
+          c.title,
+          c.department,
+          COUNT(DISTINCT o.id) as offering_count,
+          1 - (c.embedding <=> ${centroidVector}) as similarity
+        FROM courses c
+        JOIN offerings o ON c.id = o.course_id
+        WHERE c.embedding IS NOT NULL
+          AND c.id != ALL($1::int[])
+        GROUP BY c.id, c.code, c.title, c.department, c.embedding
+        HAVING COUNT(DISTINCT o.id) > 0
+        ORDER BY c.embedding <=> ${centroidVector}
+        LIMIT $2
+      `;
+
+      const result = await db.pool.query(sql, [allUserCourseIds, topKPerCluster]);
+      allRecommendations.push(...result.rows);
     }
 
-    // Handle case where topK < limit
-    if (sampledCourses.length < limit && topKCourses.length > 0) {
-      for (let i = 0; i < topKCourses.length && sampledCourses.length < limit; i++) {
-        if (!sampledCourses.includes(topKCourses[i])) {
-          sampledCourses.push(topKCourses[i]);
-        }
+    // Remove duplicates (a course might be similar to multiple clusters)
+    const uniqueCourses = [];
+    const seenIds = new Set();
+
+    for (const course of allRecommendations) {
+      if (!seenIds.has(course.id)) {
+        seenIds.add(course.id);
+        uniqueCourses.push(course);
       }
+    }
+
+    // Randomly sample 'limit' courses from all recommendations for diversity
+    const sampledCourses = [];
+    const indices = [...Array(uniqueCourses.length).keys()];
+
+    // Fisher-Yates shuffle
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+
+    // Take first 'limit' items
+    for (let i = 0; i < Math.min(limit, uniqueCourses.length); i++) {
+      sampledCourses.push(uniqueCourses[indices[i]]);
     }
 
     callback(null, sampledCourses);
