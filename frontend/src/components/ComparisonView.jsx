@@ -9,6 +9,8 @@ export default function ComparisonView({ userId, refreshTrigger }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [totalComparisons, setTotalComparisons] = useState(0);
+  const [canUndo, setCanUndo] = useState(false);
+  const [undoing, setUndoing] = useState(false);
 
   const fetchNextPair = async () => {
     setLoading(true);
@@ -40,6 +42,7 @@ export default function ComparisonView({ userId, refreshTrigger }) {
       try {
         const comparisonsResponse = await api.getUserComparisons(userId);
         setTotalComparisons(comparisonsResponse.data.length);
+        setCanUndo(comparisonsResponse.data.length > 0);
       } catch (error) {
         console.error('Error fetching comparison count:', error);
       }
@@ -62,6 +65,7 @@ export default function ComparisonView({ userId, refreshTrigger }) {
     try {
       await api.submitComparison(userId, offering_a.id, offering_b.id, winnerOfferingId);
       setTotalComparisons((prev) => prev + 1);
+      setCanUndo(true);
       fetchNextPair();
     } catch (error) {
       console.error('Error submitting comparison:', error);
@@ -74,8 +78,34 @@ export default function ComparisonView({ userId, refreshTrigger }) {
     fetchNextPair();
   };
 
+  const handleUndo = async () => {
+    if (!canUndo || undoing) return;
+
+    setUndoing(true);
+    try {
+      await api.undoLastComparison(userId);
+      setTotalComparisons((prev) => Math.max(0, prev - 1));
+      setCanUndo((prev) => prev - 1 > 0);
+      fetchNextPair();
+    } catch (error) {
+      console.error('Error undoing comparison:', error);
+      if (error.response?.status === 404) {
+        setCanUndo(false);
+      }
+    } finally {
+      setUndoing(false);
+    }
+  };
+
   useEffect(() => {
     const handleKeyPress = (e) => {
+      // Allow undo even when not in an active comparison
+      if ((e.key === 'z' || e.key === 'Z') && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
+
       if (!comparisonPair || winner) return;
 
       if (e.key === 'ArrowLeft') {
@@ -89,7 +119,7 @@ export default function ComparisonView({ userId, refreshTrigger }) {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [comparisonPair, winner]);
+  }, [comparisonPair, winner, canUndo, undoing]);
 
   if (loading && !comparisonPair) {
     return (
@@ -154,7 +184,7 @@ export default function ComparisonView({ userId, refreshTrigger }) {
           Which would you rather take again?
         </h2>
         <p className="text-sm text-gray-500 font-medium">
-          use ← → to choose • ↓ or s to skip
+          use ← → to choose • ↓ or s to skip • ⌘Z to undo
         </p>
       </motion.div>
 
@@ -181,7 +211,7 @@ export default function ComparisonView({ userId, refreshTrigger }) {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="text-center mt-12"
+        className="text-center mt-12 flex items-center justify-center gap-4"
       >
         <button
           onClick={handleSkip}
@@ -190,6 +220,15 @@ export default function ComparisonView({ userId, refreshTrigger }) {
         >
           skip this comparison
         </button>
+        {canUndo && (
+          <button
+            onClick={handleUndo}
+            disabled={undoing}
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-200 px-6 py-3 rounded-full transition-all shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {undoing ? 'undoing...' : 'undo last'}
+          </button>
+        )}
       </motion.div>
 
       {totalComparisons > 0 && (

@@ -191,4 +191,93 @@ router.post('/users/:id/compare', (req, res) => {
   });
 });
 
+// DELETE /users/:id/compare/last - Undo last comparison
+router.delete('/users/:id/compare/last', async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    // PostgreSQL implementation
+    if (db.pool) {
+      // Get the last comparison
+      const lastComparisonResult = await db.pool.query(`
+        SELECT id, offering_a_id, offering_b_id, winner_offering_id
+        FROM comparisons
+        WHERE user_id = $1
+        ORDER BY compared_at DESC
+        LIMIT 1
+      `, [userId]);
+
+      if (lastComparisonResult.rows.length === 0) {
+        return res.status(404).json({ error: 'No comparisons to undo' });
+      }
+
+      const lastComparison = lastComparisonResult.rows[0];
+      const winnerId = lastComparison.winner_offering_id;
+      const loserId = winnerId === lastComparison.offering_a_id
+        ? lastComparison.offering_b_id
+        : lastComparison.offering_a_id;
+
+      // Delete the comparison
+      await db.pool.query(`
+        DELETE FROM comparisons
+        WHERE id = $1
+      `, [lastComparison.id]);
+
+      // Recalculate Elo ratings for both offerings
+      // We'll reverse the Elo update by recalculating from scratch
+      updateEloRatings(loserId, winnerId, (err) => {
+        if (err) {
+          console.error('Error updating Elo ratings during undo:', err);
+        }
+      });
+
+      return res.json({ success: true, undone_comparison_id: lastComparison.id });
+    }
+
+    // SQLite fallback
+    const sql = `
+      SELECT id, offering_a_id, offering_b_id, winner_offering_id
+      FROM comparisons
+      WHERE user_id = ?
+      ORDER BY compared_at DESC
+      LIMIT 1
+    `;
+
+    db.get(sql, [userId], (err, lastComparison) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+
+      if (!lastComparison) {
+        return res.status(404).json({ error: 'No comparisons to undo' });
+      }
+
+      const winnerId = lastComparison.winner_offering_id;
+      const loserId = winnerId === lastComparison.offering_a_id
+        ? lastComparison.offering_b_id
+        : lastComparison.offering_a_id;
+
+      // Delete the comparison
+      const deleteSql = `DELETE FROM comparisons WHERE id = ?`;
+
+      db.run(deleteSql, [lastComparison.id], function(err) {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+
+        // Recalculate Elo ratings
+        updateEloRatings(loserId, winnerId, (err) => {
+          if (err) {
+            console.error('Error updating Elo ratings during undo:', err);
+          }
+        });
+
+        res.json({ success: true, undone_comparison_id: lastComparison.id });
+      });
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

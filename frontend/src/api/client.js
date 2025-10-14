@@ -69,6 +69,8 @@ export const api = {
 
   getUserComparisons: (userId) => apiClient.get(`/users/${userId}/comparisons`),
 
+  undoLastComparison: (userId) => apiClient.delete(`/users/${userId}/compare/last`),
+
   // Rankings
   getUserRankings: (userId) => apiClient.get(`/users/${userId}/rankings`),
 };
