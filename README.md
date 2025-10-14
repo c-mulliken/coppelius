@@ -1,1 +1,33 @@
-i am building a Belli for courses at brown. the basic idea is this: users will add courses they've taken and, in turn, compare the quality of them. the mvp should be as simple as possible. it should have a full database of courses offered since 2019, scraped from the Courses @ Brown website as illustrated in API_example.py. users should be able to easily add courses they've taken, and then be prompted to compare the courses (i.e. what CSCI 0300 or ENGL 0150 better?). this is very crude, i know, but i just want to get it working. i'd like to start by building the API.
+# coppelius
+
+brown has a course review problem. we're solving it with gamified course comparisons: compare courses you've already taken (on difficulty, content, vibes, so on), and get back better course recommendations for yourself and your peers. 
+
+## in action
+![Course comparison UI](/assets/comparison.png)
+
+![Revealed ranking UI](/assets/rankings.png)
+
+## behind the scenes
+
+for now, we're using an ELO ranking system for courses, where each comparison a user makes is treated as a match. for a few reasons, we think this is a bit naïve, so we're exploring alternative methods. the goal isn't, however, to create great *global* ratings, but great *personal* ones; i.e., given the courses you've taken and liked, how well can we predict *novel* courses you'd also like. 
+
+## what's under the hood
+* backend: **Node.js** + **PostgreSQL**
+* frontend: **React** + **Vite**
+* deployment: **Vercel** frontend, **Railway** backend
+* embeddings: **OpenAI** embedding models
+
+## data + modeling directions
+we’re experimenting with:
+* personalized embeddings using course tags and user similarity
+* Bradley–Terry / Thurstone models for pairwise comparison inference
+* collaborative filtering with sparse user–course matrices
+goal: move from raw ELO to learned latent preference spaces
+
+## roadmap
+- [x] mvp with ELO rankings + functional course comparison
+- [ ] personalized recs based on global prefs
+- [ ] comparison on alternative axes
+- [ ] adaptive sampling
+- [ ] social functionality
+- [ ] public launch ahead of next sem shopping period (winter 2025)
