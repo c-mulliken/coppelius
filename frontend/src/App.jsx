@@ -77,6 +77,17 @@ function App() {
     setUserProfile(profileResponse.data);
   };
 
+  // Dev tool: Press Shift+O to reset profile and show onboarding
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.shiftKey && e.key === 'O') {
+        setShowOnboarding(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
