@@ -6,12 +6,15 @@ import SuggestedCourses from './components/SuggestedCourses';
 import ComparisonView from './components/ComparisonView';
 import MyRankings from './components/MyRankings';
 import Login from './components/Login';
+import OnboardingModal from './components/OnboardingModal';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showRankings, setShowRankings] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -37,6 +40,15 @@ function App() {
       try {
         const response = await api.getCurrentUser();
         setUser(response.data);
+
+        // Check if user has completed profile
+        const profileResponse = await api.getUserProfile(response.data.id);
+        setUserProfile(profileResponse.data);
+
+        // Show onboarding if profile incomplete
+        if (!profileResponse.data.concentration || !profileResponse.data.graduation_year) {
+          setShowOnboarding(true);
+        }
       } catch (error) {
         // Token invalid, clear it
         localStorage.removeItem('coppelius_token');
@@ -56,6 +68,13 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('coppelius_token');
     setUser(null);
+  };
+
+  const handleOnboardingComplete = async () => {
+    setShowOnboarding(false);
+    // Refresh user profile
+    const profileResponse = await api.getUserProfile(user.id);
+    setUserProfile(profileResponse.data);
   };
 
   if (loading) {
@@ -110,6 +129,11 @@ function App() {
       <AnimatePresence>
         {showRankings && <MyRankings userId={user.id} onClose={() => setShowRankings(false)} />}
       </AnimatePresence>
+
+      {/* Onboarding Modal */}
+      {showOnboarding && (
+        <OnboardingModal userId={user.id} onComplete={handleOnboardingComplete} />
+      )}
     </div>
   );
 }

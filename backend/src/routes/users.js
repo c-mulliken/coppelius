@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const { getFallbackConcentrations } = require('../services/concentrationScraper');
+
+// Get available concentrations
+router.get('/concentrations', (req, res) => {
+  res.json(getFallbackConcentrations());
+});
 
 // Create a new user
 router.post('/', (req, res) => {
@@ -22,7 +28,7 @@ router.post('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const { id } = req.params;
 
-  const sql = `SELECT id, created_at FROM users WHERE id = ?`;
+  const sql = `SELECT id, name, email, concentration, graduation_year, created_at FROM users WHERE id = ?`;
 
   db.get(sql, [id], (err, row) => {
     if (err) {
@@ -34,6 +40,38 @@ router.get('/:id', (req, res) => {
     }
 
     res.json(row);
+  });
+});
+
+// Update user profile
+router.patch('/:id', (req, res) => {
+  const { id } = req.params;
+  const { concentration, graduation_year } = req.body;
+
+  if (!concentration || !graduation_year) {
+    return res.status(400).json({ error: 'concentration and graduation_year required' });
+  }
+
+  const sql = `
+    UPDATE users
+    SET concentration = ?, graduation_year = ?
+    WHERE id = ?
+  `;
+
+  db.run(sql, [concentration, graduation_year, id], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      id: parseInt(id),
+      concentration,
+      graduation_year
+    });
   });
 });
 

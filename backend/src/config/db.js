@@ -32,6 +32,8 @@ if (isProduction) {
           email TEXT UNIQUE,
           name TEXT,
           profile_picture TEXT,
+          concentration TEXT,
+          graduation_year INTEGER,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
