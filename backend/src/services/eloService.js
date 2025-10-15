@@ -31,17 +31,18 @@ function calculateNewRating(currentRating, expectedScore, actualScore) {
  * Update Elo ratings for two offerings after a comparison
  * @param {number} winnerOfferingId - ID of the winning offering
  * @param {number} loserOfferingId - ID of the losing offering
+ * @param {string} category - Category of comparison (difficulty, enjoyment, engagement)
  * @param {function} callback - Callback function (err)
  */
-function updateEloRatings(winnerOfferingId, loserOfferingId, callback) {
-  // Get current ratings
+function updateEloRatings(winnerOfferingId, loserOfferingId, category, callback) {
+  // Get current ratings for this category
   const getRatingSql = `
-    SELECT offering_id, rating, comparison_count
+    SELECT offering_id, category, rating, comparison_count
     FROM offering_ratings
-    WHERE offering_id IN (?, ?)
+    WHERE offering_id IN (?, ?) AND category = ?
   `;
 
-  db.all(getRatingSql, [winnerOfferingId, loserOfferingId], (err, ratings) => {
+  db.all(getRatingSql, [winnerOfferingId, loserOfferingId, category], (err, ratings) => {
     if (err) return callback(err);
 
     // Initialize ratings if they don't exist
@@ -70,18 +71,18 @@ function updateEloRatings(winnerOfferingId, loserOfferingId, callback) {
 
     // Update ratings in database
     const upsertSql = `
-      INSERT INTO offering_ratings (offering_id, rating, comparison_count, updated_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(offering_id) DO UPDATE SET
+      INSERT INTO offering_ratings (offering_id, category, rating, comparison_count, updated_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(offering_id, category) DO UPDATE SET
         rating = ?,
         comparison_count = ?,
         updated_at = CURRENT_TIMESTAMP
     `;
 
-    db.run(upsertSql, [winnerOfferingId, newWinnerRating, winnerCount + 1, newWinnerRating, winnerCount + 1], (err) => {
+    db.run(upsertSql, [winnerOfferingId, category, newWinnerRating, winnerCount + 1, newWinnerRating, winnerCount + 1], (err) => {
       if (err) return callback(err);
 
-      db.run(upsertSql, [loserOfferingId, newLoserRating, loserCount + 1, newLoserRating, loserCount + 1], callback);
+      db.run(upsertSql, [loserOfferingId, category, newLoserRating, loserCount + 1, newLoserRating, loserCount + 1], callback);
     });
   });
 }

@@ -66,11 +66,12 @@ export const api = {
   // Comparisons
   getNextComparison: (userId) => apiClient.get(`/users/${userId}/compare/next`),
 
-  submitComparison: (userId, offeringAId, offeringBId, winnerOfferingId) => {
+  submitComparison: (userId, offeringAId, offeringBId, winnerOfferingId, category) => {
     return apiClient.post(`/users/${userId}/compare`, {
       offering_a_id: offeringAId,
       offering_b_id: offeringBId,
       winner_offering_id: winnerOfferingId,
+      category,
     });
   },
 

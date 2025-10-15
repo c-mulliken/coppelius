@@ -42,6 +42,7 @@ router.get('/users/:id/comparisons', (req, res) => {
 // GET /users/:id/compare/next - Get next pair of offerings to compare
 router.get('/users/:id/compare/next', (req, res) => {
   const userId = req.params.id;
+  const categories = ['difficulty', 'enjoyment', 'engagement'];
 
   // Get all offerings the user has taken
   const takenSql = `
@@ -63,9 +64,9 @@ router.get('/users/:id/compare/next', (req, res) => {
 
     const offeringIds = taken.map(row => row.offering_id);
 
-    // Get all pairs the user has already compared
+    // Get all pairs the user has already compared (with categories)
     const comparedSql = `
-      SELECT offering_a_id, offering_b_id
+      SELECT offering_a_id, offering_b_id, category
       FROM comparisons
       WHERE user_id = ?
     `;
@@ -75,22 +76,28 @@ router.get('/users/:id/compare/next', (req, res) => {
         return res.status(500).json({ error: err.message });
       }
 
-      // Build set of compared pairs (normalized so order doesn't matter)
+      // Build set of compared pairs with categories
       const comparedPairs = new Set();
       compared.forEach(row => {
         const [a, b] = [row.offering_a_id, row.offering_b_id].sort((x, y) => x - y);
-        comparedPairs.add(`${a}-${b}`);
+        comparedPairs.add(`${a}-${b}-${row.category}`);
       });
 
-      // Find all unpaired combinations
+      // Find all unpaired combinations for each category
       const unpaired = [];
       for (let i = 0; i < offeringIds.length; i++) {
         for (let j = i + 1; j < offeringIds.length; j++) {
           const [a, b] = [offeringIds[i], offeringIds[j]].sort((x, y) => x - y);
-          const pairKey = `${a}-${b}`;
 
-          if (!comparedPairs.has(pairKey)) {
-            unpaired.push([offeringIds[i], offeringIds[j]]);
+          for (const category of categories) {
+            const pairKey = `${a}-${b}-${category}`;
+            if (!comparedPairs.has(pairKey)) {
+              unpaired.push({
+                offering_a_id: offeringIds[i],
+                offering_b_id: offeringIds[j],
+                category
+              });
+            }
           }
         }
       }
@@ -102,7 +109,7 @@ router.get('/users/:id/compare/next', (req, res) => {
       }
 
       // Pick a random unpaired combination
-      const [offeringAId, offeringBId] = unpaired[Math.floor(Math.random() * unpaired.length)];
+      const selected = unpaired[Math.floor(Math.random() * unpaired.length)];
 
       // Fetch offering details with course info
       const detailsSql = `
@@ -118,17 +125,18 @@ router.get('/users/:id/compare/next', (req, res) => {
         WHERE o.id IN (?, ?)
       `;
 
-      db.all(detailsSql, [offeringAId, offeringBId], (err, offerings) => {
+      db.all(detailsSql, [selected.offering_a_id, selected.offering_b_id], (err, offerings) => {
         if (err) {
           return res.status(500).json({ error: err.message });
         }
 
-        const offeringA = offerings.find(o => o.id === offeringAId);
-        const offeringB = offerings.find(o => o.id === offeringBId);
+        const offeringA = offerings.find(o => o.id === selected.offering_a_id);
+        const offeringB = offerings.find(o => o.id === selected.offering_b_id);
 
         res.json({
           offering_a: offeringA,
           offering_b: offeringB,
+          category: selected.category,
           remaining_comparisons: unpaired.length
         });
       });
@@ -139,12 +147,17 @@ router.get('/users/:id/compare/next', (req, res) => {
 // POST /users/:id/compare - Submit a comparison
 router.post('/users/:id/compare', (req, res) => {
   const userId = req.params.id;
-  const { offering_a_id, offering_b_id, winner_offering_id } = req.body;
+  const { offering_a_id, offering_b_id, winner_offering_id, category } = req.body;
 
-  if (!offering_a_id || !offering_b_id || !winner_offering_id) {
+  if (!offering_a_id || !offering_b_id || !winner_offering_id || !category) {
     return res.status(400).json({
-      error: 'offering_a_id, offering_b_id, and winner_offering_id required'
+      error: 'offering_a_id, offering_b_id, winner_offering_id, and category required'
     });
+  }
+
+  const validCategories = ['difficulty', 'enjoyment', 'engagement'];
+  if (!validCategories.includes(category)) {
+    return res.status(400).json({ error: 'Invalid category' });
   }
 
   if (offering_a_id === offering_b_id) {
@@ -161,11 +174,11 @@ router.post('/users/:id/compare', (req, res) => {
   const [a, b] = [offering_a_id, offering_b_id].sort((x, y) => x - y);
 
   const insertSql = `
-    INSERT INTO comparisons (user_id, offering_a_id, offering_b_id, winner_offering_id)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO comparisons (user_id, offering_a_id, offering_b_id, winner_offering_id, category)
+    VALUES (?, ?, ?, ?, ?)
   `;
 
-  db.run(insertSql, [userId, a, b, winner_offering_id], function(err) {
+  db.run(insertSql, [userId, a, b, winner_offering_id, category], function(err) {
     if (err) {
       if (err.message.includes('UNIQUE constraint')) {
         return res.status(400).json({ error: 'This comparison has already been recorded' });
@@ -173,8 +186,8 @@ router.post('/users/:id/compare', (req, res) => {
       return res.status(500).json({ error: err.message });
     }
 
-    // Update Elo ratings
-    updateEloRatings(winner_offering_id, loserOfferingId, (err) => {
+    // Update Elo ratings for this category
+    updateEloRatings(winner_offering_id, loserOfferingId, category, (err) => {
       if (err) {
         console.error('Error updating Elo ratings:', err);
       }
@@ -185,6 +198,7 @@ router.post('/users/:id/compare', (req, res) => {
         offering_a_id,
         offering_b_id,
         winner_offering_id,
+        category,
         compared_at: new Date().toISOString()
       });
     });
@@ -200,7 +214,7 @@ router.delete('/users/:id/compare/last', async (req, res) => {
     if (db.pool) {
       // Get the last comparison
       const lastComparisonResult = await db.pool.query(`
-        SELECT id, offering_a_id, offering_b_id, winner_offering_id
+        SELECT id, offering_a_id, offering_b_id, winner_offering_id, category
         FROM comparisons
         WHERE user_id = $1
         ORDER BY compared_at DESC
@@ -216,6 +230,7 @@ router.delete('/users/:id/compare/last', async (req, res) => {
       const loserId = winnerId === lastComparison.offering_a_id
         ? lastComparison.offering_b_id
         : lastComparison.offering_a_id;
+      const category = lastComparison.category;
 
       // Delete the comparison
       await db.pool.query(`
@@ -223,9 +238,9 @@ router.delete('/users/:id/compare/last', async (req, res) => {
         WHERE id = $1
       `, [lastComparison.id]);
 
-      // Recalculate Elo ratings for both offerings
+      // Recalculate Elo ratings for both offerings in this category
       // We'll reverse the Elo update by recalculating from scratch
-      updateEloRatings(loserId, winnerId, (err) => {
+      updateEloRatings(loserId, winnerId, category, (err) => {
         if (err) {
           console.error('Error updating Elo ratings during undo:', err);
         }
@@ -236,7 +251,7 @@ router.delete('/users/:id/compare/last', async (req, res) => {
 
     // SQLite fallback
     const sql = `
-      SELECT id, offering_a_id, offering_b_id, winner_offering_id
+      SELECT id, offering_a_id, offering_b_id, winner_offering_id, category
       FROM comparisons
       WHERE user_id = ?
       ORDER BY compared_at DESC
@@ -256,6 +271,7 @@ router.delete('/users/:id/compare/last', async (req, res) => {
       const loserId = winnerId === lastComparison.offering_a_id
         ? lastComparison.offering_b_id
         : lastComparison.offering_a_id;
+      const category = lastComparison.category;
 
       // Delete the comparison
       const deleteSql = `DELETE FROM comparisons WHERE id = ?`;
@@ -265,8 +281,8 @@ router.delete('/users/:id/compare/last', async (req, res) => {
           return res.status(500).json({ error: err.message });
         }
 
-        // Recalculate Elo ratings
-        updateEloRatings(loserId, winnerId, (err) => {
+        // Recalculate Elo ratings for this category
+        updateEloRatings(loserId, winnerId, category, (err) => {
           if (err) {
             console.error('Error updating Elo ratings during undo:', err);
           }

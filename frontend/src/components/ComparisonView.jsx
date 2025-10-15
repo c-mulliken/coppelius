@@ -3,6 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client';
 import ComparisonCard from './ComparisonCard';
 
+const CATEGORY_QUESTIONS = {
+  difficulty: 'which was more difficult?',
+  enjoyment: 'which did you enjoy more?',
+  engagement: 'which professor was more engaging?'
+};
+
 export default function ComparisonView({ userId, refreshTrigger }) {
   const [comparisonPair, setComparisonPair] = useState(null);
   const [winner, setWinner] = useState(null);
@@ -56,14 +62,14 @@ export default function ComparisonView({ userId, refreshTrigger }) {
     if (!comparisonPair || winner) return;
 
     const winnerOfferingId = selectedOffering.id;
-    const { offering_a, offering_b } = comparisonPair;
+    const { offering_a, offering_b, category } = comparisonPair;
 
     setWinner(winnerOfferingId);
 
     await new Promise((resolve) => setTimeout(resolve, 600));
 
     try {
-      await api.submitComparison(userId, offering_a.id, offering_b.id, winnerOfferingId);
+      await api.submitComparison(userId, offering_a.id, offering_b.id, winnerOfferingId, category);
       setTotalComparisons((prev) => prev + 1);
       setCanUndo(true);
       fetchNextPair();
@@ -181,7 +187,7 @@ export default function ComparisonView({ userId, refreshTrigger }) {
         className="text-center mb-16"
       >
         <h2 className="text-2xl font-bold text-gray-900 mb-3 tracking-tight">
-          Which would you rather take again?
+          {CATEGORY_QUESTIONS[comparisonPair.category]}
         </h2>
         <p className="text-sm text-gray-500 font-medium">
           use ← → to choose • ↓ or s to skip • ⌘Z to undo

@@ -81,17 +81,20 @@ if (isProduction) {
           offering_a_id INTEGER NOT NULL REFERENCES offerings(id),
           offering_b_id INTEGER NOT NULL REFERENCES offerings(id),
           winner_offering_id INTEGER NOT NULL REFERENCES offerings(id),
+          category TEXT NOT NULL DEFAULT 'overall',
           compared_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(user_id, offering_a_id, offering_b_id)
+          UNIQUE(user_id, offering_a_id, offering_b_id, category)
         )
       `);
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS offering_ratings (
-          offering_id INTEGER PRIMARY KEY REFERENCES offerings(id),
+          offering_id INTEGER NOT NULL REFERENCES offerings(id),
+          category TEXT NOT NULL DEFAULT 'overall',
           rating INTEGER DEFAULT 1500,
           comparison_count INTEGER DEFAULT 0,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (offering_id, category)
         )
       `);
 
