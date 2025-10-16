@@ -60,7 +60,7 @@ export default function TranscriptUpload({ userId, onUploadComplete }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 flex items-center justify-center p-6 z-50"
+            className="fixed inset-0 bg-black/20 flex items-center justify-center p-6 z-50 overflow-y-auto"
             onClick={handleClose}
           >
             <motion.div
