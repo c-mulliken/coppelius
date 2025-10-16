@@ -16,6 +16,7 @@ function App() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showRankings, setShowRankings] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showTranscriptUpload, setShowTranscriptUpload] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -111,7 +112,12 @@ function App() {
               coppelius
             </h1>
             <div className="flex items-center gap-3">
-              <TranscriptUpload userId={user.id} onUploadComplete={handleAddOffering} />
+              <button
+                onClick={() => setShowTranscriptUpload(true)}
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+              >
+                upload transcript
+              </button>
               <button
                 onClick={() => setShowRankings(true)}
                 className="text-sm font-medium text-gray-700 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 px-5 py-2.5 rounded-full transition-all shadow-sm hover:shadow"
@@ -141,6 +147,20 @@ function App() {
       {/* Rankings Modal */}
       <AnimatePresence>
         {showRankings && <MyRankings userId={user.id} onClose={() => setShowRankings(false)} />}
+      </AnimatePresence>
+
+      {/* Transcript Upload Modal */}
+      <AnimatePresence>
+        {showTranscriptUpload && (
+          <TranscriptUpload
+            userId={user.id}
+            onClose={() => setShowTranscriptUpload(false)}
+            onUploadComplete={() => {
+              handleAddOffering();
+              setShowTranscriptUpload(false);
+            }}
+          />
+        )}
       </AnimatePresence>
 
       {/* Onboarding Modal */}

@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client';
 
-export default function TranscriptUpload({ userId, onUploadComplete }) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function TranscriptUpload({ userId, onClose, onUploadComplete }) {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -40,29 +39,14 @@ export default function TranscriptUpload({ userId, onUploadComplete }) {
     }
   };
 
-  const handleClose = () => {
-    setIsOpen(false);
-    setResult(null);
-  };
-
   return (
-    <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
-      >
-        upload transcript
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 flex items-center justify-center p-6 z-50 overflow-y-auto"
-            onClick={handleClose}
-          >
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/20 flex items-center justify-center p-6 z-50"
+      onClick={onClose}
+    >
             <motion.div
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -173,7 +157,7 @@ export default function TranscriptUpload({ userId, onUploadComplete }) {
                     </div>
 
                     <button
-                      onClick={handleClose}
+                      onClick={onClose}
                       className="w-full py-3 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors"
                     >
                       Done
@@ -186,7 +170,7 @@ export default function TranscriptUpload({ userId, onUploadComplete }) {
               {!result && (
                 <div className="px-8 py-4 bg-gray-50 border-t border-gray-100">
                   <button
-                    onClick={handleClose}
+                    onClick={onClose}
                     disabled={uploading}
                     className="text-sm text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50"
                   >
@@ -195,9 +179,6 @@ export default function TranscriptUpload({ userId, onUploadComplete }) {
                 </div>
               )}
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+    </motion.div>
   );
 }
