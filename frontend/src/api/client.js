@@ -63,6 +63,8 @@ export const api = {
 
   removeUserCourse: (userId, offeringId) => apiClient.delete(`/users/${userId}/courses/${offeringId}`),
 
+  uploadTranscript: (userId, htmlContent) => apiClient.post(`/users/${userId}/transcript`, { htmlContent }),
+
   // Comparisons
   getNextComparison: (userId) => apiClient.get(`/users/${userId}/compare/next`),
 

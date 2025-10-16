@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { getFallbackConcentrations } = require('../services/concentrationScraper');
+const { importTranscript } = require('../services/transcriptService');
 
 // Get available concentrations
 router.get('/concentrations', (req, res) => {
@@ -105,53 +106,87 @@ router.get('/:id/courses', (req, res) => {
   });
 });
 
-// Get user's ranked courses based on comparisons
-router.get('/:id/rankings', (req, res) => {
+// Get user's ranked courses based on comparisons with category breakdowns
+router.get('/:id/rankings', async (req, res) => {
   const { id } = req.params;
 
+  // PostgreSQL implementation with category support
+  if (db.pool) {
+    try {
+      // Get all user offerings with category-specific ratings
+      const result = await db.pool.query(`
+        WITH user_offerings AS (
+          SELECT uc.offering_id
+          FROM user_courses uc
+          WHERE uc.user_id = $1
+        )
+        SELECT
+          o.id as offering_id,
+          c.code,
+          c.title,
+          o.professor,
+          o.semester,
+
+          -- Difficulty ratings
+          MAX(CASE WHEN r.category = 'difficulty' THEN r.rating ELSE 1500 END) as difficulty_rating,
+          COUNT(CASE WHEN comp.category = 'difficulty' AND (comp.offering_a_id = o.id OR comp.offering_b_id = o.id) THEN 1 END) as difficulty_comparisons,
+
+          -- Enjoyment ratings
+          MAX(CASE WHEN r.category = 'enjoyment' THEN r.rating ELSE 1500 END) as enjoyment_rating,
+          COUNT(CASE WHEN comp.category = 'enjoyment' AND (comp.offering_a_id = o.id OR comp.offering_b_id = o.id) THEN 1 END) as enjoyment_comparisons,
+
+          -- Engagement ratings
+          MAX(CASE WHEN r.category = 'engagement' THEN r.rating ELSE 1500 END) as engagement_rating,
+          COUNT(CASE WHEN comp.category = 'engagement' AND (comp.offering_a_id = o.id OR comp.offering_b_id = o.id) THEN 1 END) as engagement_comparisons,
+
+          -- Overall stats
+          COUNT(CASE WHEN comp.offering_a_id = o.id OR comp.offering_b_id = o.id THEN 1 END) as total_comparisons
+        FROM user_offerings uo
+        JOIN offerings o ON uo.offering_id = o.id
+        JOIN courses c ON o.course_id = c.id
+        LEFT JOIN offering_ratings r ON o.id = r.offering_id
+        LEFT JOIN comparisons comp ON (comp.offering_a_id = o.id OR comp.offering_b_id = o.id) AND comp.user_id = $1
+        GROUP BY o.id, c.code, c.title, o.professor, o.semester
+        ORDER BY
+          CASE WHEN COUNT(CASE WHEN comp.offering_a_id = o.id OR comp.offering_b_id = o.id THEN 1 END) > 0 THEN 0 ELSE 1 END,
+          (MAX(CASE WHEN r.category = 'difficulty' THEN r.rating ELSE 1500 END) +
+           MAX(CASE WHEN r.category = 'enjoyment' THEN r.rating ELSE 1500 END) +
+           MAX(CASE WHEN r.category = 'engagement' THEN r.rating ELSE 1500 END)) / 3 DESC
+      `, [id]);
+
+      return res.json(result.rows);
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // SQLite fallback (without category support for now)
   const sql = `
     WITH user_offerings AS (
       SELECT uc.offering_id
       FROM user_courses uc
       WHERE uc.user_id = ?
-    ),
-    offering_stats AS (
-      SELECT
-        o.id as offering_id,
-        c.code,
-        c.title,
-        o.professor,
-        o.semester,
-        COALESCE(r.rating, 1500) as rating,
-        COUNT(CASE WHEN comp.winner_offering_id = o.id THEN 1 END) as wins,
-        COUNT(CASE WHEN comp.winner_offering_id != o.id AND (comp.offering_a_id = o.id OR comp.offering_b_id = o.id) THEN 1 END) as losses,
-        COUNT(CASE WHEN comp.offering_a_id = o.id OR comp.offering_b_id = o.id THEN 1 END) as total_comparisons
-      FROM user_offerings uo
-      JOIN offerings o ON uo.offering_id = o.id
-      JOIN courses c ON o.course_id = c.id
-      LEFT JOIN offering_ratings r ON o.id = r.offering_id
-      LEFT JOIN comparisons comp ON (comp.offering_a_id = o.id OR comp.offering_b_id = o.id) AND comp.user_id = ?
-      GROUP BY o.id, c.code, c.title, o.professor, o.semester, r.rating
     )
     SELECT
-      offering_id,
-      code,
-      title,
-      professor,
-      semester,
-      rating,
-      wins,
-      losses,
-      total_comparisons,
-      ROUND(CASE WHEN total_comparisons > 0 THEN (wins * 100.0 / total_comparisons) ELSE 0 END, 1) as win_rate
-    FROM offering_stats
-    ORDER BY
-      CASE WHEN total_comparisons > 0 THEN 0 ELSE 1 END,
-      rating DESC,
-      wins DESC
+      o.id as offering_id,
+      c.code,
+      c.title,
+      o.professor,
+      o.semester,
+      1500 as difficulty_rating,
+      0 as difficulty_comparisons,
+      1500 as enjoyment_rating,
+      0 as enjoyment_comparisons,
+      1500 as engagement_rating,
+      0 as engagement_comparisons,
+      0 as total_comparisons
+    FROM user_offerings uo
+    JOIN offerings o ON uo.offering_id = o.id
+    JOIN courses c ON o.course_id = c.id
+    ORDER BY c.code
   `;
 
-  db.all(sql, [id, id], (err, rows) => {
+  db.all(sql, [id], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -218,6 +253,24 @@ router.delete('/:id/courses/:offering_id', (req, res) => {
       res.json({ success: true });
     });
   });
+});
+
+// Upload and import transcript
+router.post('/:id/transcript', async (req, res) => {
+  const { id } = req.params;
+  const { htmlContent } = req.body;
+
+  if (!htmlContent) {
+    return res.status(400).json({ error: 'htmlContent required in request body' });
+  }
+
+  try {
+    const results = await importTranscript(parseInt(id), htmlContent);
+    res.json(results);
+  } catch (err) {
+    console.error('Error importing transcript:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

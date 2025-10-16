@@ -7,6 +7,7 @@ import { RANK_BADGES } from '../utils/constants';
 export default function MyRankings({ userId, onClose }) {
   const [rankings, setRankings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState('overall');
 
   const fetchRankings = async () => {
     try {
@@ -41,6 +42,23 @@ export default function MyRankings({ userId, onClose }) {
     return RANK_BADGES[position] || `#${position}`;
   };
 
+  // Sort rankings based on active category
+  const sortedRankings = [...rankings].sort((a, b) => {
+    if (activeCategory === 'overall') {
+      const avgA = (parseInt(a.difficulty_rating) + parseInt(a.enjoyment_rating) + parseInt(a.engagement_rating)) / 3;
+      const avgB = (parseInt(b.difficulty_rating) + parseInt(b.enjoyment_rating) + parseInt(b.engagement_rating)) / 3;
+      return avgB - avgA;
+    }
+    const ratingKey = `${activeCategory}_rating`;
+    return parseInt(b[ratingKey]) - parseInt(a[ratingKey]);
+  });
+
+  const getCategoryRating = (ranking, category) => {
+    const rating = parseInt(ranking[`${category}_rating`]);
+    const comparisons = parseInt(ranking[`${category}_comparisons`]);
+    return { rating, comparisons };
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -56,24 +74,43 @@ export default function MyRankings({ userId, onClose }) {
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden"
       >
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-medium text-gray-900">my rankings</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-900 transition-colors"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+        <div className="sticky top-0 bg-white border-b border-gray-100">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <h2 className="text-lg font-medium text-gray-900">my rankings</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-900 transition-colors"
             >
-              <path d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+
+          {/* Category tabs */}
+          <div className="flex border-t border-gray-100">
+            {['overall', 'difficulty', 'enjoyment', 'engagement'].map((category) => (
+              <button
+                key={category}
+                onClick={() => setActiveCategory(category)}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeCategory === category
+                    ? 'text-indigo-600 border-b-2 border-indigo-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="overflow-y-auto max-h-[calc(80vh-8rem)]">
@@ -88,56 +125,74 @@ export default function MyRankings({ userId, onClose }) {
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
-              {rankings.map((ranking, index) => (
-                <div
-                  key={ranking.offering_id}
-                  className="px-6 py-4 hover:bg-gray-50 transition-colors group"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="text-2xl flex-shrink-0 w-12 text-center">
-                      {getRankBadge(index + 1)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm text-gray-900 font-medium">
-                        {ranking.code} – {ranking.title}
+              {sortedRankings.map((ranking, index) => {
+                const currentCategory = activeCategory === 'overall' ? null : activeCategory;
+                const categoryData = currentCategory ? getCategoryRating(ranking, currentCategory) : null;
+
+                return (
+                  <div
+                    key={ranking.offering_id}
+                    className="px-6 py-4 hover:bg-gray-50 transition-colors group"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="text-2xl flex-shrink-0 w-12 text-center">
+                        {getRankBadge(index + 1)}
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                        <span>{ranking.professor || 'TBD'}</span>
-                        <span>•</span>
-                        <span>{formatSemester(ranking.semester)}</span>
+                      <div className="flex-1">
+                        <div className="text-sm text-gray-900 font-medium">
+                          {ranking.code} – {ranking.title}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
+                          <span>{ranking.professor || 'TBD'}</span>
+                          <span>•</span>
+                          <span>{formatSemester(ranking.semester)}</span>
+                        </div>
+
+                        {/* Show ratings based on active tab */}
+                        {activeCategory === 'overall' ? (
+                          <div className="flex items-center gap-3 mt-2 text-xs">
+                            <span className="text-gray-600">
+                              difficulty: {Math.round(getCategoryRating(ranking, 'difficulty').rating)}
+                            </span>
+                            <span className="text-gray-600">
+                              enjoyment: {Math.round(getCategoryRating(ranking, 'enjoyment').rating)}
+                            </span>
+                            <span className="text-gray-600">
+                              engagement: {Math.round(getCategoryRating(ranking, 'engagement').rating)}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-3 mt-2 text-xs">
+                            <span className="text-indigo-600 font-medium">
+                              rating: {Math.round(categoryData.rating)}
+                            </span>
+                            <span className="text-gray-400">
+                              {categoryData.comparisons} comparison{categoryData.comparisons !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-3 mt-2 text-xs">
-                        <span className="text-gray-600">
-                          {ranking.wins}W - {ranking.losses}L
-                        </span>
-                        <span className="text-indigo-600 font-medium">
-                          {ranking.win_rate}% win rate
-                        </span>
-                        <span className="text-gray-400">
-                          rating: {Math.round(ranking.rating)}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDelete(ranking.offering_id)}
-                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500"
-                      title="Remove course"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
+                      <button
+                        onClick={() => handleDelete(ranking.offering_id)}
+                        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500"
+                        title="Remove course"
                       >
-                        <path d="M6 18L18 6M6 6l12 12"></path>
-                      </svg>
-                    </button>
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

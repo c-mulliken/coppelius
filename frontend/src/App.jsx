@@ -7,6 +7,7 @@ import ComparisonView from './components/ComparisonView';
 import MyRankings from './components/MyRankings';
 import Login from './components/Login';
 import OnboardingModal from './components/OnboardingModal';
+import TranscriptUpload from './components/TranscriptUpload';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -110,6 +111,7 @@ function App() {
               coppelius
             </h1>
             <div className="flex items-center gap-3">
+              <TranscriptUpload userId={user.id} onUploadComplete={handleAddOffering} />
               <button
                 onClick={() => setShowRankings(true)}
                 className="text-sm font-medium text-gray-700 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 px-5 py-2.5 rounded-full transition-all shadow-sm hover:shadow"
