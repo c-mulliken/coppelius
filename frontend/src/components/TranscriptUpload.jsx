@@ -60,16 +60,15 @@ export default function TranscriptUpload({ userId, onUploadComplete }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-            style={{ zIndex: 9999 }}
+            className="fixed inset-0 bg-black/20 flex items-center justify-center p-6 z-50"
             onClick={handleClose}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              exit={{ scale: 0.96, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden my-4"
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden"
             >
               {/* Header */}
               <div className="px-8 pt-8 pb-6 border-b border-gray-100">
