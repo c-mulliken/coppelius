@@ -37,7 +37,12 @@ async function scrapeSemester(semester) {
   };
 
   try {
+    console.log(`Making request to CAB API for semester ${semester}...`);
     const response = await axios.post(CAB_API_URL, payload, { params, headers });
+
+    console.log(`Response status: ${response.status}`);
+    console.log(`Response has data: ${!!response.data}`);
+    console.log(`Response has results: ${!!response.data?.results}`);
 
     if (response.status === 200 && response.data.results) {
       const results = response.data.results;
@@ -78,9 +83,18 @@ async function scrapeSemester(semester) {
 
       console.log(`Inserted offerings for semester ${semester}`);
       return insertedOfferings;
+    } else {
+      console.log(`No results returned for semester ${semester}`);
+      console.log(`Response data:`, JSON.stringify(response.data, null, 2));
+      return 0;
     }
   } catch (error) {
     console.error(`Error scraping semester ${semester}:`, error.message);
+    console.error('Full error:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+    }
     return 0;
   }
 }
