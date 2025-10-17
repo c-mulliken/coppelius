@@ -69,6 +69,7 @@ if (isProduction) {
           id SERIAL PRIMARY KEY,
           user_id INTEGER NOT NULL REFERENCES users(id),
           offering_id INTEGER NOT NULL REFERENCES offerings(id),
+          grade TEXT,
           added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           UNIQUE(user_id, offering_id)
         )
@@ -96,6 +97,19 @@ if (isProduction) {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (offering_id, category)
         )
+      `);
+
+      // Migration: Add grade column to user_courses if it doesn't exist
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'user_courses' AND column_name = 'grade'
+          ) THEN
+            ALTER TABLE user_courses ADD COLUMN grade TEXT;
+          END IF;
+        END $$;
       `);
 
       console.log('PostgreSQL schema initialized');

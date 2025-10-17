@@ -120,17 +120,18 @@ function ensureOffering(courseId, courseData) {
  * Add a course offering to a user's course list
  * @param {number} userId - User ID
  * @param {number} offeringId - Offering ID
+ * @param {string} grade - Grade received (optional)
  * @returns {Promise<void>}
  */
-function addUserCourse(userId, offeringId) {
+function addUserCourse(userId, offeringId, grade = null) {
   return new Promise((resolve, reject) => {
     const sql = `
-      INSERT INTO user_courses (user_id, offering_id)
-      VALUES (?, ?)
-      ON CONFLICT(user_id, offering_id) DO NOTHING
+      INSERT INTO user_courses (user_id, offering_id, grade)
+      VALUES (?, ?, ?)
+      ON CONFLICT(user_id, offering_id) DO UPDATE SET grade = EXCLUDED.grade
     `;
 
-    db.run(sql, [userId, offeringId], function(err) {
+    db.run(sql, [userId, offeringId, grade], function(err) {
       if (err) {
         // Ignore duplicate entries
         if (err.message.includes('UNIQUE constraint')) {
@@ -182,10 +183,10 @@ async function importTranscript(userId, htmlContent) {
         // Ensure offering exists
         const offeringId = await ensureOffering(courseId, courseData);
 
-        // Add to user's courses
-        await addUserCourse(userId, offeringId);
+        // Add to user's courses with grade
+        await addUserCourse(userId, offeringId, courseData.grade);
 
-        console.log(`Added ${courseData.code} (${courseData.semester}) to user ${userId}`);
+        console.log(`Added ${courseData.code} (${courseData.semester}) with grade ${courseData.grade} to user ${userId}`);
         results.added++;
       } catch (err) {
         console.error(`Error processing ${courseData.code}:`, err.message);

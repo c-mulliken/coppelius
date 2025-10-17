@@ -90,6 +90,7 @@ router.get('/:id/courses', (req, res) => {
       o.professor,
       o.semester,
       o.section,
+      uc.grade,
       uc.added_at
     FROM user_courses uc
     JOIN offerings o ON uc.offering_id = o.id
@@ -197,15 +198,15 @@ router.get('/:id/rankings', async (req, res) => {
 // Add a course offering to user's list
 router.post('/:id/courses', (req, res) => {
   const { id } = req.params;
-  const { offering_id } = req.body;
+  const { offering_id, grade } = req.body;
 
   if (!offering_id) {
     return res.status(400).json({ error: 'offering_id required' });
   }
 
-  const sql = `INSERT INTO user_courses (user_id, offering_id) VALUES (?, ?)`;
+  const sql = `INSERT INTO user_courses (user_id, offering_id, grade) VALUES (?, ?, ?)`;
 
-  db.run(sql, [id, offering_id], function(err) {
+  db.run(sql, [id, offering_id, grade || null], function(err) {
     if (err) {
       if (err.message.includes('UNIQUE constraint')) {
         return res.status(400).json({ error: 'Course offering already added' });
@@ -217,6 +218,7 @@ router.post('/:id/courses', (req, res) => {
       id: this.lastID,
       user_id: parseInt(id),
       offering_id: offering_id,
+      grade: grade || null,
       added_at: new Date().toISOString()
     });
   });
