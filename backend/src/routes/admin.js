@@ -145,6 +145,73 @@ router.post('/remove-conference-sections', async (req, res) => {
   }
 });
 
+// Remove non-standard sections (I, C, L - keep only S sections)
+router.post('/remove-non-standard-sections', async (req, res) => {
+  const { secret } = req.body;
+
+  if (secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const db = require('../config/db');
+
+  if (!db.pool) {
+    return res.status(500).json({ error: 'Not connected to PostgreSQL' });
+  }
+
+  try {
+    // Get IDs of non-standard sections (not starting with S)
+    const nonStandardOfferings = await db.pool.query(`
+      SELECT id FROM offerings WHERE section !~ '^S'
+    `);
+
+    const offeringIds = nonStandardOfferings.rows.map(row => row.id);
+
+    if (offeringIds.length === 0) {
+      return res.json({ success: true, message: 'No non-standard sections found', deleted: 0 });
+    }
+
+    // Delete related data first (to avoid foreign key violations)
+
+    // 1. Delete from offering_ratings
+    const ratingsResult = await db.pool.query(`
+      DELETE FROM offering_ratings
+      WHERE offering_id = ANY($1)
+    `, [offeringIds]);
+
+    // 2. Delete from comparisons
+    const comparisonsResult = await db.pool.query(`
+      DELETE FROM comparisons
+      WHERE offering_a_id = ANY($1) OR offering_b_id = ANY($1::int[]) OR winner_offering_id = ANY($1::int[])
+    `, [offeringIds]);
+
+    // 3. Delete from user_courses
+    const userCoursesResult = await db.pool.query(`
+      DELETE FROM user_courses
+      WHERE offering_id = ANY($1)
+    `, [offeringIds]);
+
+    // 4. Finally, delete the offerings themselves
+    const offeringsResult = await db.pool.query(`
+      DELETE FROM offerings
+      WHERE section !~ '^S'
+    `);
+
+    res.json({
+      success: true,
+      message: `Removed ${offeringsResult.rowCount} non-standard sections (I, C, L)`,
+      deleted: {
+        offerings: offeringsResult.rowCount,
+        ratings: ratingsResult.rowCount,
+        comparisons: comparisonsResult.rowCount,
+        userCourses: userCoursesResult.rowCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Remove lab sections (sections starting with 'L')
 router.post('/remove-lab-sections', async (req, res) => {
   const { secret } = req.body;

@@ -48,9 +48,13 @@ async function scrapeSemester(semester) {
       const results = response.data.results;
       console.log(`Found ${results.length} course offerings for semester ${semester}`);
 
-      // Filter out conference sections (C) and lab sections (L)
+      // Only include standard sections (S) - exclude independent study (I), conference (C), and lab (L)
       const filteredResults = results.filter(item => {
         const section = item.no || '';
+        if (section.startsWith('I')) {
+          console.log(`Skipping independent study section: ${item.code} ${section}`);
+          return false;
+        }
         if (section.startsWith('C')) {
           console.log(`Skipping conference section: ${item.code} ${section}`);
           return false;
@@ -59,10 +63,15 @@ async function scrapeSemester(semester) {
           console.log(`Skipping lab section: ${item.code} ${section}`);
           return false;
         }
+        // Only keep sections starting with S
+        if (!section.startsWith('S')) {
+          console.log(`Skipping non-standard section: ${item.code} ${section}`);
+          return false;
+        }
         return true;
       });
 
-      console.log(`Processing ${filteredResults.length} regular offerings (skipped ${results.length - filteredResults.length} conference/lab sections)`);
+      console.log(`Processing ${filteredResults.length} standard (S) offerings (skipped ${results.length - filteredResults.length} non-standard sections)`);
 
       // Insert courses and offerings into database
       let insertedCourses = 0;
