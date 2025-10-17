@@ -4,9 +4,9 @@ const { fetchCourseDescription } = require('./cabApiService');
 
 const CAB_API_URL = process.env.CAB_API_URL || 'https://cab.brown.edu/api/';
 
-// Semesters since 2019 (format: YYYYSS where SS is 10=Fall, 20=Spring)
+// Semesters since 2021 (format: YYYYSS where SS is 10=Fall, 20=Spring)
 const SEMESTERS = [
-  '201910', '202010', '202020', '202110', '202120',
+  '202110', '202120',
   '202210', '202220', '202310', '202320', '202410',
   '202420', '202510', '202520'
 ];
