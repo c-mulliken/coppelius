@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const { setupFuzzySearch } = require('../services/setupFuzzySearch');
 const { setupVectorSearch } = require('../services/setupVectorSearch');
 const { checkExtensions } = require('../services/checkExtensions');
@@ -19,14 +19,31 @@ router.post('/scrape-courses', (req, res) => {
   // Send immediate response
   res.json({ success: true, message: 'Scraping started - check Railway logs for progress' });
 
-  // Run the scraper in the background
-  exec('node src/services/courseScraper.js', (error, stdout, stderr) => {
-    if (error) {
-      console.error('Scraper error:', error);
-    } else {
-      console.log('Scraper output:', stdout);
+  // Run the scraper in the background with streaming output
+  console.log('Starting course scraper...');
+  const scraper = spawn('node', ['src/services/courseScraper.js']);
+
+  // Stream stdout in real-time
+  scraper.stdout.on('data', (data) => {
+    process.stdout.write(`[SCRAPER] ${data}`);
+  });
+
+  // Stream stderr in real-time
+  scraper.stderr.on('data', (data) => {
+    process.stderr.write(`[SCRAPER ERROR] ${data}`);
+  });
+
+  // Log when complete
+  scraper.on('close', (code) => {
+    if (code === 0) {
       console.log('Scraping completed successfully');
+    } else {
+      console.error(`Scraper exited with code ${code}`);
     }
+  });
+
+  scraper.on('error', (error) => {
+    console.error('Failed to start scraper:', error);
   });
 });
 
