@@ -145,6 +145,73 @@ router.post('/remove-conference-sections', async (req, res) => {
   }
 });
 
+// Remove lab sections (sections starting with 'L')
+router.post('/remove-lab-sections', async (req, res) => {
+  const { secret } = req.body;
+
+  if (secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const db = require('../config/db');
+
+  if (!db.pool) {
+    return res.status(500).json({ error: 'Not connected to PostgreSQL' });
+  }
+
+  try {
+    // First, get IDs of lab sections
+    const labOfferings = await db.pool.query(`
+      SELECT id FROM offerings WHERE section LIKE 'L%'
+    `);
+
+    const offeringIds = labOfferings.rows.map(row => row.id);
+
+    if (offeringIds.length === 0) {
+      return res.json({ success: true, message: 'No lab sections found', deleted: 0 });
+    }
+
+    // Delete related data first (to avoid foreign key violations)
+
+    // 1. Delete from offering_ratings
+    const ratingsResult = await db.pool.query(`
+      DELETE FROM offering_ratings
+      WHERE offering_id = ANY($1)
+    `, [offeringIds]);
+
+    // 2. Delete from comparisons
+    const comparisonsResult = await db.pool.query(`
+      DELETE FROM comparisons
+      WHERE offering_a_id = ANY($1) OR offering_b_id = ANY($1::int[]) OR winner_offering_id = ANY($1::int[])
+    `, [offeringIds]);
+
+    // 3. Delete from user_courses
+    const userCoursesResult = await db.pool.query(`
+      DELETE FROM user_courses
+      WHERE offering_id = ANY($1)
+    `, [offeringIds]);
+
+    // 4. Finally, delete the offerings themselves
+    const offeringsResult = await db.pool.query(`
+      DELETE FROM offerings
+      WHERE section LIKE 'L%'
+    `);
+
+    res.json({
+      success: true,
+      message: `Removed ${offeringsResult.rowCount} lab sections`,
+      deleted: {
+        offerings: offeringsResult.rowCount,
+        ratings: ratingsResult.rowCount,
+        comparisons: comparisonsResult.rowCount,
+        userCourses: userCoursesResult.rowCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get database statistics
 router.post('/db-stats', async (req, res) => {
   const { secret } = req.body;
