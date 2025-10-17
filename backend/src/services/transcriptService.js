@@ -2,15 +2,15 @@ const db = require('../config/db');
 const { parseTranscriptWithTerms } = require('./transcriptParser');
 
 /**
- * Find or create a course in the database
+ * Find a course in the database (does NOT create if not found)
  * @param {Object} courseData - Parsed course data
- * @returns {Promise<number>} Course ID
+ * @returns {Promise<number|null>} Course ID or null if not found
  */
-function ensureCourse(courseData) {
+function findCourse(courseData) {
   return new Promise((resolve, reject) => {
-    const { code, title, department } = courseData;
+    const { code } = courseData;
 
-    // First, try to find existing course
+    // Only find existing course - don't create new ones
     const findSql = `SELECT id FROM courses WHERE code = ?`;
 
     db.get(findSql, [code], (err, row) => {
@@ -18,47 +18,23 @@ function ensureCourse(courseData) {
         return reject(err);
       }
 
-      if (row) {
-        return resolve(row.id);
-      }
-
-      // Insert new course
-      const insertSql = `
-        INSERT INTO courses (code, title, department)
-        VALUES (?, ?, ?)
-      `;
-
-      db.run(insertSql, [code, title, department], function(err) {
-        if (err) {
-          // Handle race condition where another process inserted the same course
-          if (err.message.includes('UNIQUE constraint')) {
-            db.get(findSql, [code], (err2, row2) => {
-              if (err2) return reject(err2);
-              resolve(row2.id);
-            });
-          } else {
-            reject(err);
-          }
-        } else {
-          resolve(this.lastID);
-        }
-      });
+      // Return course ID if found, null otherwise
+      resolve(row ? row.id : null);
     });
   });
 }
 
 /**
- * Find or create an offering in the database
+ * Find an offering in the database (does NOT create if not found)
  * @param {number} courseId - Course ID
  * @param {Object} courseData - Parsed course data with semester and section
- * @returns {Promise<number>} Offering ID
+ * @returns {Promise<number|null>} Offering ID or null if not found
  */
-function ensureOffering(courseId, courseData) {
+function findOffering(courseId, courseData) {
   return new Promise((resolve, reject) => {
     const { semester, section } = courseData;
 
-    // Transcripts don't include professor info, so we'll try to find an existing offering
-    // that matches course_id, semester, and section
+    // Try to find an exact match (course_id, semester, and section)
     const findSql = `
       SELECT id FROM offerings
       WHERE course_id = ? AND semester = ? AND section = ?
@@ -86,31 +62,8 @@ function ensureOffering(courseId, courseData) {
           return reject(err2);
         }
 
-        if (row2) {
-          return resolve(row2.id);
-        }
-
-        // Create a new offering with unknown professor
-        const insertSql = `
-          INSERT INTO offerings (course_id, professor, semester, section)
-          VALUES (?, ?, ?, ?)
-        `;
-
-        db.run(insertSql, [courseId, 'Unknown', semester, section], function(err3) {
-          if (err3) {
-            // Handle race condition
-            if (err3.message.includes('UNIQUE constraint')) {
-              db.get(findSql, [courseId, semester, section], (err4, row3) => {
-                if (err4) return reject(err4);
-                resolve(row3.id);
-              });
-            } else {
-              reject(err3);
-            }
-          } else {
-            resolve(this.lastID);
-          }
-        });
+        // Return offering ID if found, null otherwise
+        resolve(row2 ? row2.id : null);
       });
     });
   });
@@ -177,11 +130,23 @@ async function importTranscript(userId, htmlContent) {
           continue;
         }
 
-        // Ensure course exists
-        const courseId = await ensureCourse(courseData);
+        // Find course (don't create if not exists)
+        const courseId = await findCourse(courseData);
 
-        // Ensure offering exists
-        const offeringId = await ensureOffering(courseId, courseData);
+        if (!courseId) {
+          console.log(`Skipping ${courseData.code} - not in database`);
+          results.skipped++;
+          continue;
+        }
+
+        // Find offering (don't create if not exists)
+        const offeringId = await findOffering(courseId, courseData);
+
+        if (!offeringId) {
+          console.log(`Skipping ${courseData.code} (${courseData.semester}) - offering not in database`);
+          results.skipped++;
+          continue;
+        }
 
         // Add to user's courses with grade
         await addUserCourse(userId, offeringId, courseData.grade);
@@ -204,8 +169,8 @@ async function importTranscript(userId, htmlContent) {
 }
 
 module.exports = {
-  ensureCourse,
-  ensureOffering,
+  findCourse,
+  findOffering,
   addUserCourse,
   importTranscript
 };
