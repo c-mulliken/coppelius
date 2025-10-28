@@ -179,6 +179,9 @@ export default function ComparisonView({ userId, refreshTrigger }) {
     return null;
   }
 
+  const { enough_comparisons, total_comparisons } = comparisonPair;
+  const MINIMUM_COMPARISONS = 15;
+
   return (
     <div className="w-full max-w-5xl mx-auto">
       <motion.div
@@ -189,9 +192,25 @@ export default function ComparisonView({ userId, refreshTrigger }) {
         <h2 className="text-2xl font-bold text-gray-900 mb-3 tracking-tight">
           {CATEGORY_QUESTIONS[comparisonPair.category]}
         </h2>
-        <p className="text-sm text-gray-500 font-medium">
+        <p className="text-sm text-gray-500 font-medium mb-2">
           use ← → to choose • ↓ or s to skip • ⌘Z to undo
         </p>
+
+        {/* Progress indicator */}
+        <div className="mt-4">
+          {enough_comparisons ? (
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm font-medium">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              you've contributed enough! feel free to keep going or stop anytime
+            </div>
+          ) : (
+            <div className="text-xs text-gray-400">
+              {total_comparisons || 0} / {MINIMUM_COMPARISONS} comparisons • helping build global rankings
+            </div>
+          )}
+        </div>
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
