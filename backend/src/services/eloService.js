@@ -34,8 +34,65 @@ function calculateNewRating(currentRating, expectedScore, actualScore) {
  * @param {string} category - Category of comparison (difficulty, enjoyment, engagement)
  * @param {function} callback - Callback function (err)
  */
-function updateEloRatings(winnerOfferingId, loserOfferingId, category, callback) {
-  // Get current ratings for this category
+async function updateEloRatings(winnerOfferingId, loserOfferingId, category, callback) {
+  // PostgreSQL implementation
+  if (db.pool) {
+    try {
+      // Get current ratings for this category
+      const getRatingSql = `
+        SELECT offering_id, category, rating, comparison_count
+        FROM offering_ratings
+        WHERE offering_id IN ($1, $2) AND category = $3
+      `;
+
+      const result = await db.pool.query(getRatingSql, [winnerOfferingId, loserOfferingId, category]);
+      const ratings = result.rows;
+
+      // Initialize ratings if they don't exist
+      let winnerRating = DEFAULT_RATING;
+      let loserRating = DEFAULT_RATING;
+      let winnerCount = 0;
+      let loserCount = 0;
+
+      ratings.forEach(r => {
+        if (r.offering_id == winnerOfferingId) {
+          winnerRating = r.rating;
+          winnerCount = r.comparison_count;
+        } else if (r.offering_id == loserOfferingId) {
+          loserRating = r.rating;
+          loserCount = r.comparison_count;
+        }
+      });
+
+      // Calculate expected scores
+      const expectedWinner = calculateExpectedScore(winnerRating, loserRating);
+      const expectedLoser = calculateExpectedScore(loserRating, winnerRating);
+
+      // Calculate new ratings
+      const newWinnerRating = calculateNewRating(winnerRating, expectedWinner, 1);
+      const newLoserRating = calculateNewRating(loserRating, expectedLoser, 0);
+
+      // Update ratings in database
+      const upsertSql = `
+        INSERT INTO offering_ratings (offering_id, category, rating, comparison_count, updated_at)
+        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+        ON CONFLICT(offering_id, category) DO UPDATE SET
+          rating = $3,
+          comparison_count = $4,
+          updated_at = CURRENT_TIMESTAMP
+      `;
+
+      await db.pool.query(upsertSql, [winnerOfferingId, category, newWinnerRating, winnerCount + 1]);
+      await db.pool.query(upsertSql, [loserOfferingId, category, newLoserRating, loserCount + 1]);
+
+      callback(null);
+    } catch (err) {
+      callback(err);
+    }
+    return;
+  }
+
+  // SQLite fallback
   const getRatingSql = `
     SELECT offering_id, category, rating, comparison_count
     FROM offering_ratings
