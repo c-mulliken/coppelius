@@ -149,65 +149,108 @@ router.get('/users/:id/compare/next', verifyToken, verifyUserAccess, (req, res) 
           ratingLookup[r.offering_id][r.category] = r.rating;
         });
 
-        // Calculate win probability for each unpaired combination
-        // Elo win probability: 1 / (1 + 10^((ratingB - ratingA) / 400))
-        function calculateWinProbability(ratingA, ratingB) {
-          return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
-        }
-
-        // Score each pair by uncertainty (how close to 50%)
-        const scoredPairs = unpaired.map(pair => {
-          const ratingA = ratingLookup[pair.offering_a_id]?.[pair.category] || 1500;
-          const ratingB = ratingLookup[pair.offering_b_id]?.[pair.category] || 1500;
-          const winProb = calculateWinProbability(ratingA, ratingB);
-
-          // Uncertainty score: 1.0 at 50% probability, 0.0 at 0% or 100%
-          const uncertainty = 1 - Math.abs(winProb - 0.5) * 2;
-
-          return {
-            ...pair,
-            uncertainty,
-            winProb
-          };
-        });
-
-        // Sort by uncertainty (highest first) and pick from top candidates
-        scoredPairs.sort((a, b) => b.uncertainty - a.uncertainty);
-
-        // Pick randomly from top 5 most uncertain pairs (adds variety)
-        const topN = Math.min(5, scoredPairs.length);
-        const selected = scoredPairs[Math.floor(Math.random() * topN)];
-
-        // Fetch offering details with course info
-        const detailsSql = `
-          SELECT
-            o.id,
-            c.code,
-            c.title,
-            o.professor,
-            o.semester,
-            o.section
-          FROM offerings o
-          JOIN courses c ON o.course_id = c.id
-          WHERE o.id IN (?, ?)
+        // Get comparison counts for diversity scoring
+        const comparisonCountSql = `
+          SELECT offering_id, category, COUNT(*) as comparison_count
+          FROM (
+            SELECT offering_a_id as offering_id, category FROM comparisons
+            UNION ALL
+            SELECT offering_b_id as offering_id, category FROM comparisons
+          ) AS all_comparisons
+          WHERE offering_id IN (${allOfferingIds.map(() => '?').join(',')})
+          GROUP BY offering_id, category
         `;
 
-        db.all(detailsSql, [selected.offering_a_id, selected.offering_b_id], (err, offerings) => {
+        db.all(comparisonCountSql, allOfferingIds, (err, counts) => {
           if (err) {
             return res.status(500).json({ error: err.message });
           }
 
-          const offeringA = offerings.find(o => o.id === selected.offering_a_id);
-          const offeringB = offerings.find(o => o.id === selected.offering_b_id);
+          // Build comparison count lookup
+          const countLookup = {};
+          counts.forEach(c => {
+            if (!countLookup[c.offering_id]) countLookup[c.offering_id] = {};
+            countLookup[c.offering_id][c.category] = c.comparison_count;
+          });
 
-          res.json({
-            offering_a: offeringA,
-            offering_b: offeringB,
-            category: selected.category,
-            remaining_comparisons: unpaired.length,
-            total_comparisons: userComparisonCount,
-            enough_comparisons: hasContributedEnough,
-            uncertainty: selected.uncertainty // Debug info
+          // Calculate win probability for each unpaired combination
+          // Elo win probability: 1 / (1 + 10^((ratingB - ratingA) / 400))
+          function calculateWinProbability(ratingA, ratingB) {
+            return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+          }
+
+          // Score each pair by uncertainty + diversity
+          const scoredPairs = unpaired.map(pair => {
+            const ratingA = ratingLookup[pair.offering_a_id]?.[pair.category] || 1500;
+            const ratingB = ratingLookup[pair.offering_b_id]?.[pair.category] || 1500;
+            const winProb = calculateWinProbability(ratingA, ratingB);
+
+            // Uncertainty score: 1.0 at 50% probability, 0.0 at 0% or 100%
+            const uncertainty = 1 - Math.abs(winProb - 0.5) * 2;
+
+            // Diversity bonus: prioritize courses with fewer comparisons
+            const countA = countLookup[pair.offering_a_id]?.[pair.category] || 0;
+            const countB = countLookup[pair.offering_b_id]?.[pair.category] || 0;
+            const minCount = Math.min(countA, countB);
+
+            // Diversity score: 1.0 for courses with 0 comparisons, decreases with more comparisons
+            // Use exponential decay: e^(-count/5) so courses with 0-5 comparisons get strong boost
+            const diversity = Math.exp(-minCount / 5);
+
+            // Combined score: 70% uncertainty + 30% diversity
+            const score = 0.7 * uncertainty + 0.3 * diversity;
+
+            return {
+              ...pair,
+              uncertainty,
+              diversity,
+              score,
+              winProb,
+              countA,
+              countB
+            };
+          });
+
+          // Sort by combined score (highest first) and pick from top candidates
+          scoredPairs.sort((a, b) => b.score - a.score);
+
+          // Pick randomly from top 5 highest scoring pairs (adds variety)
+          const topN = Math.min(5, scoredPairs.length);
+          const selected = scoredPairs[Math.floor(Math.random() * topN)];
+
+          // Fetch offering details with course info
+          const detailsSql = `
+            SELECT
+              o.id,
+              c.code,
+              c.title,
+              o.professor,
+              o.semester,
+              o.section
+            FROM offerings o
+            JOIN courses c ON o.course_id = c.id
+            WHERE o.id IN (?, ?)
+          `;
+
+          db.all(detailsSql, [selected.offering_a_id, selected.offering_b_id], (err, offerings) => {
+            if (err) {
+              return res.status(500).json({ error: err.message });
+            }
+
+            const offeringA = offerings.find(o => o.id === selected.offering_a_id);
+            const offeringB = offerings.find(o => o.id === selected.offering_b_id);
+
+            res.json({
+              offering_a: offeringA,
+              offering_b: offeringB,
+              category: selected.category,
+              remaining_comparisons: unpaired.length,
+              total_comparisons: userComparisonCount,
+              enough_comparisons: hasContributedEnough,
+              uncertainty: selected.uncertainty,
+              diversity: selected.diversity,
+              score: selected.score // Debug info: combined score
+            });
           });
         });
       });
