@@ -77,7 +77,6 @@ router.get('/me', verifyToken, async (req, res) => {
   });
 });
 
-// Export the verifyToken middleware for use in other routes
-module.exports.verifyToken = verifyToken;
-
+// Export both the router and the middleware
 module.exports = router;
+module.exports.verifyToken = verifyToken;
