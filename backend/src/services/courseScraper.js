@@ -5,11 +5,32 @@ const { fetchCourseDescription } = require('./cabApiService');
 const CAB_API_URL = process.env.CAB_API_URL || 'https://cab.brown.edu/api/';
 
 // Semesters since 2021 (format: YYYYSS where SS is 10=Fall, 20=Spring)
+// Note: CAB API uses calendar year (Spring 2024 = 202420), but we store using
+// academic year (Spring 2024 = 202320) to match Brown's system
 const SEMESTERS = [
   '202110', '202120',
   '202210', '202220', '202310', '202320', '202410',
   '202420', '202510', '202520'
 ];
+
+/**
+ * Convert CAB API semester code to Brown academic year code
+ * CAB uses calendar year, but Brown uses academic year:
+ * - CAB: Spring 2024 = 202420, Fall 2024 = 202410
+ * - Brown: Spring 2024 = 202320 (part of 2023-2024 academic year)
+ */
+function convertToAcademicYear(cabSemester) {
+  const year = parseInt(cabSemester.substring(0, 4));
+  const term = cabSemester.substring(4);
+
+  // For Spring (20) and Summer (30), subtract 1 to get academic year
+  if (term === '20' || term === '30') {
+    return `${year - 1}${term}`;
+  }
+
+  // Fall (10) stays the same
+  return cabSemester;
+}
 
 async function scrapeSemester(semester) {
   console.log(`Scraping semester ${semester}...`);
@@ -73,6 +94,10 @@ async function scrapeSemester(semester) {
 
       console.log(`Processing ${filteredResults.length} standard (S) offerings (skipped ${results.length - filteredResults.length} non-standard sections)`);
 
+      // Convert CAB semester code to academic year code for storage
+      const academicYearSemester = convertToAcademicYear(semester);
+      console.log(`Converting CAB semester ${semester} to academic year ${academicYearSemester}`);
+
       // Insert courses and offerings into database
       let insertedCourses = 0;
       let insertedOfferings = 0;
@@ -80,7 +105,7 @@ async function scrapeSemester(semester) {
       for (const item of filteredResults) {
         try {
           const courseId = await ensureCourse(item);
-          await insertOffering(item, courseId, semester);
+          await insertOffering(item, courseId, academicYearSemester);
           insertedOfferings++;
 
           // Delay to avoid overwhelming CAB API when fetching descriptions
