@@ -347,6 +347,42 @@ router.post('/db-stats', async (req, res) => {
   }
 });
 
+// Clear offerings only (keep courses, useful for re-scraping with fixed semester codes)
+router.post('/clear-offerings', async (req, res) => {
+  const { secret } = req.body;
+
+  if (secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const db = require('../config/db');
+
+  if (!db.pool) {
+    return res.status(500).json({ error: 'Not connected to PostgreSQL' });
+  }
+
+  try {
+    // Delete offerings and related data, but keep courses
+    const comparisonsResult = await db.pool.query('DELETE FROM comparisons');
+    const userCoursesResult = await db.pool.query('DELETE FROM user_courses');
+    const ratingsResult = await db.pool.query('DELETE FROM offering_ratings');
+    const offeringsResult = await db.pool.query('DELETE FROM offerings');
+
+    res.json({
+      success: true,
+      message: 'Offerings cleared (courses preserved)',
+      deleted: {
+        comparisons: comparisonsResult.rowCount,
+        userCourses: userCoursesResult.rowCount,
+        ratings: ratingsResult.rowCount,
+        offerings: offeringsResult.rowCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Clear user data only (keep courses and offerings)
 router.post('/clear-user-data', async (req, res) => {
   const { secret } = req.body;

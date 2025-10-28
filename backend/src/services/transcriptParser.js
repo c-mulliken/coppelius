@@ -86,14 +86,12 @@ function extractTermInfo(htmlContent) {
 
 /**
  * Convert season and year to semester code (format: YYYYSS)
- * Uses Brown's academic year system where:
- * - Fall 2023 = 202310 (starts academic year 2023-2024)
- * - Spring 2024 = 202320 (part of academic year 2023-2024)
- * - Summer 2024 = 202330 (part of academic year 2023-2024)
+ * Transcripts use calendar year naming (Spring 2024, Fall 2024)
+ * which matches how courses are stored in the database
  *
  * @param {string} season - "Fall", "Spring", or "Summer"
  * @param {string} year - Calendar year (e.g., "2024" for Spring 2024)
- * @returns {string} Semester code (e.g., "202320" for Spring 2024)
+ * @returns {string} Semester code (e.g., "202420" for Spring 2024)
  */
 function convertToSemesterCode(season, year) {
   const seasonCodes = {
@@ -102,14 +100,7 @@ function convertToSemesterCode(season, year) {
     'Summer': '30'
   };
 
-  // For Spring and Summer, subtract 1 from year to get academic year
-  // Spring 2024 is part of academic year 2023-2024, so it becomes 202320
-  let academicYear = parseInt(year);
-  if (season === 'Spring' || season === 'Summer') {
-    academicYear -= 1;
-  }
-
-  return `${academicYear}${seasonCodes[season] || '10'}`;
+  return `${year}${seasonCodes[season] || '10'}`;
 }
 
 /**
