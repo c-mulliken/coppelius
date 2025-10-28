@@ -21,7 +21,8 @@ export default function Rankings() {
       if (department) params.append('department', department);
       if (sortBy) params.append('sort', sortBy);
 
-      const response = await fetch(`/courses/rankings?${params}`);
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://coppelius-production.up.railway.app';
+      const response = await fetch(`${apiUrl}/courses/rankings?${params}`);
       const data = await response.json();
       setRankings(data);
     } catch (error) {
