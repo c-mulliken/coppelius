@@ -8,6 +8,7 @@ import MyCourses from './components/MyCourses';
 import Login from './components/Login';
 import OnboardingModal from './components/OnboardingModal';
 import TranscriptUpload from './components/TranscriptUpload';
+import Rankings from './components/Rankings';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -17,6 +18,7 @@ function App() {
   const [showCourses, setShowCourses] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTranscriptUpload, setShowTranscriptUpload] = useState(false);
+  const [currentView, setCurrentView] = useState('compare'); // 'compare' or 'rankings'
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -113,6 +115,26 @@ function App() {
             </h1>
             <div className="flex items-center gap-3">
               <button
+                onClick={() => setCurrentView('compare')}
+                className={`text-sm font-medium transition-colors ${
+                  currentView === 'compare'
+                    ? 'text-indigo-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                compare
+              </button>
+              <button
+                onClick={() => setCurrentView('rankings')}
+                className={`text-sm font-medium transition-colors ${
+                  currentView === 'rankings'
+                    ? 'text-indigo-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                rankings
+              </button>
+              <button
                 onClick={() => setShowTranscriptUpload(true)}
                 className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
               >
@@ -132,16 +154,26 @@ function App() {
               </button>
             </div>
           </div>
-          <SearchBar userId={user.id} onAddOffering={handleAddOffering} />
-          <div className="mt-8">
-            <SuggestedCourses userId={user.id} onAddOffering={handleAddOffering} />
-          </div>
+          {currentView === 'compare' && (
+            <>
+              <SearchBar userId={user.id} onAddOffering={handleAddOffering} />
+              <div className="mt-8">
+                <SuggestedCourses userId={user.id} onAddOffering={handleAddOffering} />
+              </div>
+            </>
+          )}
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto max-w-5xl py-20">
-        <ComparisonView userId={user.id} refreshTrigger={refreshTrigger} />
+      <main>
+        {currentView === 'compare' ? (
+          <div className="container mx-auto max-w-5xl py-20">
+            <ComparisonView userId={user.id} refreshTrigger={refreshTrigger} />
+          </div>
+        ) : (
+          <Rankings />
+        )}
       </main>
 
       {/* My Courses Modal */}
