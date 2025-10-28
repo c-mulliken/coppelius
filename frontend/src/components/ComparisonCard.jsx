@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { formatSemester } from '../utils/formatters';
 
 export default function ComparisonCard({ offering, onSelect, isWinner }) {
   if (!offering) return null;
@@ -62,19 +63,4 @@ export default function ComparisonCard({ offering, onSelect, isWinner }) {
       )}
     </motion.div>
   );
-}
-
-function formatSemester(semester) {
-  if (!semester) return '';
-
-  const year = semester.substring(0, 4);
-  const term = semester.substring(4);
-
-  const termMap = {
-    '10': 'Fall',
-    '20': 'Spring',
-    '30': 'Summer',
-  };
-
-  return `${termMap[term] || term} ${year}`;
 }
