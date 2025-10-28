@@ -55,7 +55,8 @@ router.get('/users/:id/comparisons', verifyToken, verifyUserAccess, (req, res) =
 // GET /users/:id/compare/next - Get next pair of offerings to compare
 router.get('/users/:id/compare/next', verifyToken, verifyUserAccess, (req, res) => {
   const userId = req.params.id;
-  const categories = ['difficulty', 'enjoyment', 'engagement'];
+  // Only use enjoyment category for now
+  const categories = ['enjoyment'];
 
   // Get all offerings the user has taken
   const takenSql = `
