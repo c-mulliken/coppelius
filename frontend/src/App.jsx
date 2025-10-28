@@ -4,7 +4,7 @@ import { api } from './api/client';
 import SearchBar from './components/SearchBar';
 import SuggestedCourses from './components/SuggestedCourses';
 import ComparisonView from './components/ComparisonView';
-import MyRankings from './components/MyRankings';
+import MyCourses from './components/MyCourses';
 import Login from './components/Login';
 import OnboardingModal from './components/OnboardingModal';
 import TranscriptUpload from './components/TranscriptUpload';
@@ -14,7 +14,7 @@ function App() {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [showRankings, setShowRankings] = useState(false);
+  const [showCourses, setShowCourses] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTranscriptUpload, setShowTranscriptUpload] = useState(false);
 
@@ -119,7 +119,7 @@ function App() {
                 upload transcript
               </button>
               <button
-                onClick={() => setShowRankings(true)}
+                onClick={() => setShowCourses(true)}
                 className="text-sm font-medium text-gray-700 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 px-5 py-2.5 rounded-full transition-all shadow-sm hover:shadow"
               >
                 my courses
@@ -144,9 +144,9 @@ function App() {
         <ComparisonView userId={user.id} refreshTrigger={refreshTrigger} />
       </main>
 
-      {/* Rankings Modal */}
+      {/* My Courses Modal */}
       <AnimatePresence>
-        {showRankings && <MyRankings userId={user.id} onClose={() => setShowRankings(false)} />}
+        {showCourses && <MyCourses userId={user.id} onClose={() => setShowCourses(false)} />}
       </AnimatePresence>
 
       {/* Transcript Upload Modal */}
