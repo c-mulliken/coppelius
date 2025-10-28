@@ -347,6 +347,42 @@ router.post('/db-stats', async (req, res) => {
   }
 });
 
+// Clear user data only (keep courses and offerings)
+router.post('/clear-user-data', async (req, res) => {
+  const { secret } = req.body;
+
+  if (secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const db = require('../config/db');
+
+  if (!db.pool) {
+    return res.status(500).json({ error: 'Not connected to PostgreSQL' });
+  }
+
+  try {
+    // Delete user data in order to respect foreign key constraints
+    const comparisonsResult = await db.pool.query('DELETE FROM comparisons');
+    const userCoursesResult = await db.pool.query('DELETE FROM user_courses');
+    const ratingsResult = await db.pool.query('DELETE FROM offering_ratings');
+    const usersResult = await db.pool.query('DELETE FROM users');
+
+    res.json({
+      success: true,
+      message: 'User data cleared (courses and offerings preserved)',
+      deleted: {
+        comparisons: comparisonsResult.rowCount,
+        userCourses: userCoursesResult.rowCount,
+        ratings: ratingsResult.rowCount,
+        users: usersResult.rowCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Reset database (delete all data)
 router.post('/reset-db', async (req, res) => {
   const { secret } = req.body;
