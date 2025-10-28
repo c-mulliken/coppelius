@@ -47,21 +47,11 @@ export default function MyCourses({ userId, onClose }) {
   }, {});
 
   // Sort semesters in reverse chronological order
-  // Spring (20) happens AFTER Fall (10) of the same academic year
-  // So we need custom sorting: 202420 (Spring 2024) > 202410 (Fall 2024)
+  // Spring 2025 (202520) happens Jan-May, Fall 2025 (202530) happens Aug-Dec
+  // So chronologically: Fall 2025 > Spring 2025 > Fall 2024 > Spring 2024
   const sortedSemesters = Object.keys(coursesBySemester).sort((a, b) => {
-    const yearA = parseInt(a.substring(0, 4));
-    const yearB = parseInt(b.substring(0, 4));
-    const termA = parseInt(a.substring(4));
-    const termB = parseInt(b.substring(4));
-
-    // If different years, sort by year
-    if (yearA !== yearB) {
-      return yearB - yearA; // Most recent year first
-    }
-
-    // Same year - Spring (20) comes after Fall (10)
-    return termB - termA; // Higher term number (Spring) first
+    // Simply compare as integers - higher number = more recent
+    return parseInt(b) - parseInt(a);
   });
 
   return (
