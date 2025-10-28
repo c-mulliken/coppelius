@@ -47,29 +47,14 @@ export default function MyCourses({ userId, onClose }) {
   }, {});
 
   // Sort semesters in reverse chronological order
-  // Semester codes use academic year: Fall 2024 = 202410, Spring 2025 = 202520
-  // But Fall 2025 = 202510, which creates a problem for simple numeric comparison
-  // Chronological order: Fall 2025 > Spring 2025 > Fall 2024 > Spring 2024 > Fall 2023
+  // Brown uses academic year encoding:
+  // - Fall 2024 = 202410 (starts academic year 2024-2025)
+  // - Spring 2025 = 202420 (part of academic year 2024-2025)
+  // - Summer 2025 = 202430 (part of academic year 2024-2025)
+  // So chronologically: Summer 2025 (202430) > Spring 2025 (202420) > Fall 2024 (202410)
+  // We can simply sort numerically in descending order
   const sortedSemesters = Object.keys(coursesBySemester).sort((a, b) => {
-    const yearA = parseInt(a.substring(0, 4));
-    const yearB = parseInt(b.substring(0, 4));
-    const termA = parseInt(a.substring(4)); // 10=Fall, 20=Spring, 30=Summer
-    const termB = parseInt(b.substring(4));
-
-    // Convert to actual chronological order
-    // Fall YYYY happens in calendar year YYYY (Aug-Dec)
-    // Spring YYYY happens in calendar year YYYY (Jan-May)
-    // So Fall 2025 (Aug 2025) > Spring 2025 (Jan 2025)
-    const calendarYearA = termA === 20 ? yearA : yearA; // Spring uses same year, Fall uses same year
-    const calendarYearB = termB === 20 ? yearB : yearB;
-    const calendarMonthA = termA === 10 ? 8 : (termA === 20 ? 1 : 6); // Fall=Aug, Spring=Jan, Summer=Jun
-    const calendarMonthB = termB === 10 ? 8 : (termB === 20 ? 1 : 6);
-
-    // Compare calendar dates
-    if (calendarYearA !== calendarYearB) {
-      return calendarYearB - calendarYearA; // Most recent year first
-    }
-    return calendarMonthB - calendarMonthA; // Most recent month first
+    return parseInt(b) - parseInt(a); // Higher number = more recent
   });
 
   return (
