@@ -3,6 +3,19 @@ const router = express.Router();
 const db = require('../config/db');
 const { getFallbackConcentrations } = require('../services/concentrationScraper');
 const { importTranscript } = require('../services/transcriptService');
+const { verifyToken } = require('./auth');
+
+// Middleware to verify user can only access their own data
+function verifyUserAccess(req, res, next) {
+  const requestedUserId = parseInt(req.params.id);
+  const authenticatedUserId = req.userId;
+
+  if (requestedUserId !== authenticatedUserId) {
+    return res.status(403).json({ error: 'Forbidden: You can only access your own data' });
+  }
+
+  next();
+}
 
 // Get available concentrations
 router.get('/concentrations', (req, res) => {
@@ -26,7 +39,7 @@ router.post('/', (req, res) => {
 });
 
 // Get user profile
-router.get('/:id', (req, res) => {
+router.get('/:id', verifyToken, verifyUserAccess, (req, res) => {
   const { id } = req.params;
 
   const sql = `SELECT id, name, email, concentration, graduation_year, created_at FROM users WHERE id = ?`;
@@ -45,7 +58,7 @@ router.get('/:id', (req, res) => {
 });
 
 // Update user profile
-router.patch('/:id', (req, res) => {
+router.patch('/:id', verifyToken, verifyUserAccess, (req, res) => {
   const { id } = req.params;
   const { concentration, graduation_year } = req.body;
 
@@ -77,7 +90,7 @@ router.patch('/:id', (req, res) => {
 });
 
 // Get all course offerings for a user
-router.get('/:id/courses', (req, res) => {
+router.get('/:id/courses', verifyToken, verifyUserAccess, (req, res) => {
   const { id } = req.params;
 
   const sql = `
@@ -108,7 +121,7 @@ router.get('/:id/courses', (req, res) => {
 });
 
 // Get user's ranked courses based on comparisons with category breakdowns
-router.get('/:id/rankings', async (req, res) => {
+router.get('/:id/rankings', verifyToken, verifyUserAccess, async (req, res) => {
   const { id } = req.params;
 
   // PostgreSQL implementation with category support
@@ -196,7 +209,7 @@ router.get('/:id/rankings', async (req, res) => {
 });
 
 // Add a course offering to user's list
-router.post('/:id/courses', (req, res) => {
+router.post('/:id/courses', verifyToken, verifyUserAccess, (req, res) => {
   const { id } = req.params;
   const { offering_id, grade } = req.body;
 
@@ -225,7 +238,7 @@ router.post('/:id/courses', (req, res) => {
 });
 
 // Remove a course offering from user's list
-router.delete('/:id/courses/:offering_id', (req, res) => {
+router.delete('/:id/courses/:offering_id', verifyToken, verifyUserAccess, (req, res) => {
   const { id, offering_id } = req.params;
 
   // First, delete all comparisons involving this offering for this user
@@ -258,7 +271,7 @@ router.delete('/:id/courses/:offering_id', (req, res) => {
 });
 
 // Upload and import transcript
-router.post('/:id/transcript', async (req, res) => {
+router.post('/:id/transcript', verifyToken, verifyUserAccess, async (req, res) => {
   const { id } = req.params;
   const { htmlContent } = req.body;
 

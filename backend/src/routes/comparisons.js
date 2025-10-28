@@ -2,9 +2,22 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { updateEloRatings } = require('../services/eloService');
+const { verifyToken } = require('./auth');
+
+// Middleware to verify user can only access their own data
+function verifyUserAccess(req, res, next) {
+  const requestedUserId = parseInt(req.params.id);
+  const authenticatedUserId = req.userId;
+
+  if (requestedUserId !== authenticatedUserId) {
+    return res.status(403).json({ error: 'Forbidden: You can only access your own data' });
+  }
+
+  next();
+}
 
 // GET /users/:id/comparisons - Get all comparisons made by user
-router.get('/users/:id/comparisons', (req, res) => {
+router.get('/users/:id/comparisons', verifyToken, verifyUserAccess, (req, res) => {
   const userId = req.params.id;
 
   const sql = `
@@ -40,7 +53,7 @@ router.get('/users/:id/comparisons', (req, res) => {
 });
 
 // GET /users/:id/compare/next - Get next pair of offerings to compare
-router.get('/users/:id/compare/next', (req, res) => {
+router.get('/users/:id/compare/next', verifyToken, verifyUserAccess, (req, res) => {
   const userId = req.params.id;
   const categories = ['difficulty', 'enjoyment', 'engagement'];
 
@@ -145,7 +158,7 @@ router.get('/users/:id/compare/next', (req, res) => {
 });
 
 // POST /users/:id/compare - Submit a comparison
-router.post('/users/:id/compare', (req, res) => {
+router.post('/users/:id/compare', verifyToken, verifyUserAccess, (req, res) => {
   const userId = req.params.id;
   const { offering_a_id, offering_b_id, winner_offering_id, category } = req.body;
 
@@ -206,7 +219,7 @@ router.post('/users/:id/compare', (req, res) => {
 });
 
 // DELETE /users/:id/compare/last - Undo last comparison
-router.delete('/users/:id/compare/last', async (req, res) => {
+router.delete('/users/:id/compare/last', verifyToken, verifyUserAccess, async (req, res) => {
   const userId = req.params.id;
 
   try {
