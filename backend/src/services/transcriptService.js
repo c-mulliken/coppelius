@@ -76,7 +76,34 @@ function findOffering(courseId, courseData) {
  * @param {string} grade - Grade received (optional)
  * @returns {Promise<void>}
  */
-function addUserCourse(userId, offeringId, grade = null) {
+async function addUserCourse(userId, offeringId, grade = null) {
+  // PostgreSQL implementation
+  if (db.pool) {
+    try {
+      // Add to user_courses
+      const userCourseSql = `
+        INSERT INTO user_courses (user_id, offering_id, grade)
+        VALUES ($1, $2, $3)
+        ON CONFLICT(user_id, offering_id) DO UPDATE SET grade = EXCLUDED.grade
+      `;
+      await db.pool.query(userCourseSql, [userId, offeringId, grade]);
+
+      // Add to grades table if grade exists
+      if (grade) {
+        const gradeSql = `
+          INSERT INTO grades (user_id, offering_id, grade)
+          VALUES ($1, $2, $3)
+          ON CONFLICT(user_id, offering_id) DO UPDATE SET grade = EXCLUDED.grade
+        `;
+        await db.pool.query(gradeSql, [userId, offeringId, grade]);
+      }
+    } catch (err) {
+      throw err;
+    }
+    return;
+  }
+
+  // SQLite fallback
   return new Promise((resolve, reject) => {
     const sql = `
       INSERT INTO user_courses (user_id, offering_id, grade)
@@ -160,6 +187,24 @@ async function importTranscript(userId, htmlContent) {
           error: err.message
         });
       }
+    }
+
+    // Mark user as having uploaded transcript (if at least one course was added)
+    if (results.added > 0) {
+      if (db.pool) {
+        await db.pool.query(
+          'UPDATE users SET has_uploaded_transcript = TRUE WHERE id = $1',
+          [userId]
+        );
+      } else {
+        await new Promise((resolve, reject) => {
+          db.run('UPDATE users SET has_uploaded_transcript = 1 WHERE id = ?', [userId], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      }
+      console.log(`Marked user ${userId} as having uploaded transcript`);
     }
 
     return results;

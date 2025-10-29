@@ -172,7 +172,7 @@ function App() {
             <ComparisonView userId={user.id} refreshTrigger={refreshTrigger} />
           </div>
         ) : (
-          <Rankings />
+          <Rankings userId={user.id} />
         )}
       </main>
 

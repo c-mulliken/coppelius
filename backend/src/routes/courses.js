@@ -227,6 +227,93 @@ router.get('/:id/offerings', (req, res) => {
   });
 });
 
+// GET /offerings/:id/grade-distribution - Get grade distribution for an offering
+// Requires user to have uploaded transcript
+router.get('/offerings/:id/grade-distribution', async (req, res) => {
+  const { id: offeringId } = req.params;
+  const userId = req.query.user_id;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'user_id required' });
+  }
+
+  if (!db.pool) {
+    return res.status(500).json({ error: 'PostgreSQL connection required' });
+  }
+
+  try {
+    // Check if user has uploaded transcript
+    const userResult = await db.pool.query(
+      'SELECT has_uploaded_transcript FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!userResult.rows[0].has_uploaded_transcript) {
+      return res.status(403).json({
+        error: 'Upload your transcript to view grade distributions',
+        requires_transcript: true
+      });
+    }
+
+    // Get grade distribution
+    const gradeResult = await db.pool.query(`
+      SELECT
+        grade,
+        COUNT(*) as count
+      FROM grades
+      WHERE offering_id = $1
+      GROUP BY grade
+      ORDER BY
+        CASE grade
+          WHEN 'A' THEN 1
+          WHEN 'A-' THEN 2
+          WHEN 'B+' THEN 3
+          WHEN 'B' THEN 4
+          WHEN 'B-' THEN 5
+          WHEN 'C+' THEN 6
+          WHEN 'C' THEN 7
+          WHEN 'C-' THEN 8
+          WHEN 'D+' THEN 9
+          WHEN 'D' THEN 10
+          WHEN 'F' THEN 11
+          WHEN 'S' THEN 12
+          WHEN 'NC' THEN 13
+          ELSE 14
+        END
+    `, [offeringId]);
+
+    const totalGrades = gradeResult.rows.reduce((sum, row) => sum + parseInt(row.count), 0);
+
+    // Only show distribution if there are at least 5 grades (privacy threshold)
+    if (totalGrades < 5) {
+      return res.json({
+        available: false,
+        message: 'Not enough data to show grade distribution (minimum 5 grades required)'
+      });
+    }
+
+    // Calculate percentages
+    const distribution = gradeResult.rows.map(row => ({
+      grade: row.grade,
+      count: parseInt(row.count),
+      percentage: ((parseInt(row.count) / totalGrades) * 100).toFixed(1)
+    }));
+
+    res.json({
+      available: true,
+      total_grades: totalGrades,
+      distribution
+    });
+  } catch (error) {
+    console.error('Error fetching grade distribution:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /courses/suggestions - Get suggested courses for user
 router.get('/suggestions/for-user', (req, res) => {
   const userId = req.query.user_id;

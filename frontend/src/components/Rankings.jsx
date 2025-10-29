@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { formatSemester } from '../utils/formatters';
+import GradeDistribution from './GradeDistribution';
 
-export default function Rankings() {
+export default function Rankings({ userId }) {
   const [rankings, setRankings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [department, setDepartment] = useState('');
   const [sortBy, setSortBy] = useState('rating');
+  const [expandedOffering, setExpandedOffering] = useState(null);
 
   useEffect(() => {
     fetchRankings();
@@ -129,7 +131,8 @@ export default function Rankings() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.02 }}
-                  className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-6"
+                  className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-6 cursor-pointer"
+                  onClick={() => setExpandedOffering(expandedOffering === course.offering_id ? null : course.offering_id)}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -191,6 +194,11 @@ export default function Rankings() {
                       )}
                     </div>
                   </div>
+
+                  {/* Expandable grade distribution */}
+                  {expandedOffering === course.offering_id && userId && (
+                    <GradeDistribution offeringId={course.offering_id} userId={userId} />
+                  )}
                 </motion.div>
               );
             })}
