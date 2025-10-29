@@ -289,6 +289,10 @@ router.post('/users/:id/compare', verifyToken, verifyUserAccess, (req, res) => {
 
   // PostgreSQL implementation
   if (db.pool) {
+    console.log('\n=== COMPARISON SUBMISSION ===');
+    console.log('User:', userId, 'Winner:', winner_offering_id, 'Loser:', loserOfferingId, 'Category:', category);
+    console.log('Normalized pair (a,b):', a, b);
+
     const insertSql = `
       INSERT INTO comparisons (user_id, offering_a_id, offering_b_id, winner_offering_id, category)
       VALUES ($1, $2, $3, $4, $5)
@@ -297,12 +301,18 @@ router.post('/users/:id/compare', verifyToken, verifyUserAccess, (req, res) => {
 
     db.pool.query(insertSql, [userId, a, b, winner_offering_id, category])
       .then(result => {
+        console.log('Comparison saved to DB with ID:', result.rows[0].id);
+        console.log('Calling updateEloRatings...');
+
         // Update Elo ratings for this category
         updateEloRatings(winner_offering_id, loserOfferingId, category, (err) => {
           if (err) {
-            console.error('Error updating Elo ratings:', err);
+            console.error('!!! Error updating Elo ratings:', err);
+          } else {
+            console.log('Elo ratings updated successfully');
           }
 
+          console.log('=== COMPARISON COMPLETE ===\n');
           res.status(201).json({
             id: result.rows[0].id,
             user_id: parseInt(userId),
@@ -315,6 +325,7 @@ router.post('/users/:id/compare', verifyToken, verifyUserAccess, (req, res) => {
         });
       })
       .catch(err => {
+        console.error('!!! Error inserting comparison:', err);
         if (err.message.includes('duplicate key') || err.message.includes('unique constraint')) {
           return res.status(400).json({ error: 'This comparison has already been recorded' });
         }

@@ -35,6 +35,9 @@ function calculateNewRating(currentRating, expectedScore, actualScore) {
  * @param {function} callback - Callback function (err)
  */
 async function updateEloRatings(winnerOfferingId, loserOfferingId, category, callback) {
+  console.log('\n=== ELO UPDATE CALLED ===');
+  console.log('Winner ID:', winnerOfferingId, 'Loser ID:', loserOfferingId, 'Category:', category);
+
   // PostgreSQL implementation
   if (db.pool) {
     try {
@@ -45,8 +48,10 @@ async function updateEloRatings(winnerOfferingId, loserOfferingId, category, cal
         WHERE offering_id IN ($1, $2) AND category = $3
       `;
 
+      console.log('Fetching current ratings...');
       const result = await db.pool.query(getRatingSql, [winnerOfferingId, loserOfferingId, category]);
       const ratings = result.rows;
+      console.log('Current ratings from DB:', JSON.stringify(ratings, null, 2));
 
       // Initialize ratings if they don't exist
       let winnerRating = DEFAULT_RATING;
@@ -64,13 +69,21 @@ async function updateEloRatings(winnerOfferingId, loserOfferingId, category, cal
         }
       });
 
+      console.log('Before update - Winner rating:', winnerRating, 'count:', winnerCount);
+      console.log('Before update - Loser rating:', loserRating, 'count:', loserCount);
+
       // Calculate expected scores
       const expectedWinner = calculateExpectedScore(winnerRating, loserRating);
       const expectedLoser = calculateExpectedScore(loserRating, winnerRating);
 
+      console.log('Expected scores - Winner:', expectedWinner, 'Loser:', expectedLoser);
+
       // Calculate new ratings
       const newWinnerRating = calculateNewRating(winnerRating, expectedWinner, 1);
       const newLoserRating = calculateNewRating(loserRating, expectedLoser, 0);
+
+      console.log('New ratings - Winner:', newWinnerRating, 'Loser:', newLoserRating);
+      console.log('Rating changes - Winner:', newWinnerRating - winnerRating, 'Loser:', newLoserRating - loserRating);
 
       // Update ratings in database
       const upsertSql = `
@@ -82,11 +95,15 @@ async function updateEloRatings(winnerOfferingId, loserOfferingId, category, cal
           updated_at = CURRENT_TIMESTAMP
       `;
 
+      console.log('Updating winner in DB...');
       await db.pool.query(upsertSql, [winnerOfferingId, category, newWinnerRating, winnerCount + 1]);
+      console.log('Updating loser in DB...');
       await db.pool.query(upsertSql, [loserOfferingId, category, newLoserRating, loserCount + 1]);
 
+      console.log('=== ELO UPDATE COMPLETE ===\n');
       callback(null);
     } catch (err) {
+      console.error('!!! ELO UPDATE ERROR !!!', err);
       callback(err);
     }
     return;
