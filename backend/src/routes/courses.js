@@ -21,11 +21,11 @@ router.get('/rankings', async (req, res) => {
         c.department,
         o.professor,
         o.semester,
-        COALESCE(r.rating, 1500) as rating,
+        r.rating,
         COALESCE(comp_count.count, 0) as comparison_count
       FROM offerings o
       JOIN courses c ON o.course_id = c.id
-      LEFT JOIN offering_ratings r ON o.id = r.offering_id AND r.category = 'enjoyment'
+      INNER JOIN offering_ratings r ON o.id = r.offering_id AND r.category = 'enjoyment'
       LEFT JOIN (
         SELECT offering_id, COUNT(*) as count
         FROM (
