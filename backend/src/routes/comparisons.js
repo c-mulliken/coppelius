@@ -287,6 +287,43 @@ router.post('/users/:id/compare', verifyToken, verifyUserAccess, (req, res) => {
   // Insert comparison (with normalized ordering to prevent duplicates)
   const [a, b] = [offering_a_id, offering_b_id].sort((x, y) => x - y);
 
+  // PostgreSQL implementation
+  if (db.pool) {
+    const insertSql = `
+      INSERT INTO comparisons (user_id, offering_a_id, offering_b_id, winner_offering_id, category)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, compared_at
+    `;
+
+    db.pool.query(insertSql, [userId, a, b, winner_offering_id, category])
+      .then(result => {
+        // Update Elo ratings for this category
+        updateEloRatings(winner_offering_id, loserOfferingId, category, (err) => {
+          if (err) {
+            console.error('Error updating Elo ratings:', err);
+          }
+
+          res.status(201).json({
+            id: result.rows[0].id,
+            user_id: parseInt(userId),
+            offering_a_id,
+            offering_b_id,
+            winner_offering_id,
+            category,
+            compared_at: result.rows[0].compared_at
+          });
+        });
+      })
+      .catch(err => {
+        if (err.message.includes('duplicate key') || err.message.includes('unique constraint')) {
+          return res.status(400).json({ error: 'This comparison has already been recorded' });
+        }
+        return res.status(500).json({ error: err.message });
+      });
+    return;
+  }
+
+  // SQLite fallback
   const insertSql = `
     INSERT INTO comparisons (user_id, offering_a_id, offering_b_id, winner_offering_id, category)
     VALUES (?, ?, ?, ?, ?)
