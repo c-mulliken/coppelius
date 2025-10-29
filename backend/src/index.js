@@ -76,6 +76,37 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Debug endpoint - check offering_ratings table
+app.get('/debug/ratings', async (req, res) => {
+  if (db.pool) {
+    try {
+      const result = await db.pool.query(`
+        SELECT
+          or_table.offering_id,
+          or_table.category,
+          or_table.rating,
+          or_table.comparison_count,
+          c.code,
+          o.professor
+        FROM offering_ratings or_table
+        JOIN offerings o ON or_table.offering_id = o.id
+        JOIN courses c ON o.course_id = c.id
+        WHERE or_table.category = 'enjoyment'
+        ORDER BY or_table.rating ASC
+        LIMIT 20
+      `);
+      res.json({
+        message: 'Lowest 20 ratings in offering_ratings table',
+        data: result.rows
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  } else {
+    res.status(500).json({ error: 'PostgreSQL required' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Belli API server running on port ${PORT}`);
