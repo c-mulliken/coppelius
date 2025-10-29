@@ -74,6 +74,20 @@ router.get('/rankings', async (req, res) => {
     sql += ` LIMIT 500`;
 
     const result = await db.pool.query(sql, params);
+    console.log('\n=== RANKINGS QUERY ===');
+    console.log('Total offerings returned:', result.rows.length);
+    console.log('First 5 offerings:', result.rows.slice(0, 5).map(r => ({
+      code: r.code,
+      professor: r.professor,
+      rating: r.rating,
+      comparison_count: r.comparison_count
+    })));
+    console.log('Lowest ratings:', result.rows.slice(-5).map(r => ({
+      code: r.code,
+      professor: r.professor,
+      rating: r.rating,
+      comparison_count: r.comparison_count
+    })));
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching rankings:', error);
