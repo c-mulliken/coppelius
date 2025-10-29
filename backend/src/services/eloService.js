@@ -77,8 +77,8 @@ async function updateEloRatings(winnerOfferingId, loserOfferingId, category, cal
         INSERT INTO offering_ratings (offering_id, category, rating, comparison_count, updated_at)
         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
         ON CONFLICT(offering_id, category) DO UPDATE SET
-          rating = $3,
-          comparison_count = $4,
+          rating = EXCLUDED.rating,
+          comparison_count = EXCLUDED.comparison_count,
           updated_at = CURRENT_TIMESTAMP
       `;
 
