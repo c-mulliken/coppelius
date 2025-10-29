@@ -451,4 +451,59 @@ router.post('/reset-db', async (req, res) => {
   }
 });
 
+// Run migration for grades table
+router.post('/run-migration', async (req, res) => {
+  const { secret, migration } = req.body;
+
+  if (secret !== ADMIN_SECRET) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const db = require('../config/db');
+
+  if (!db.pool) {
+    return res.status(500).json({ error: 'Not connected to PostgreSQL' });
+  }
+
+  if (migration !== 'grades') {
+    return res.status(400).json({ error: 'Invalid migration. Use "grades"' });
+  }
+
+  try {
+    // Run the grades table migration
+    await db.pool.query(`
+      -- Add grades table to store transcript grades
+      CREATE TABLE IF NOT EXISTS grades (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        offering_id INTEGER NOT NULL REFERENCES offerings(id) ON DELETE CASCADE,
+        grade VARCHAR(5) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, offering_id)
+      );
+    `);
+
+    await db.pool.query(`
+      -- Add indexes for faster queries
+      CREATE INDEX IF NOT EXISTS idx_grades_offering_id ON grades(offering_id);
+    `);
+
+    await db.pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_grades_user_id ON grades(user_id);
+    `);
+
+    await db.pool.query(`
+      -- Add has_uploaded_transcript flag to users table
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS has_uploaded_transcript BOOLEAN DEFAULT FALSE;
+    `);
+
+    res.json({
+      success: true,
+      message: 'Grades table migration complete'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
